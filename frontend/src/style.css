@@ -1,0 +1,78 @@
+/* Import Font Keren (Inter) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* --- VARIABEL GLOBAL --- */
+:root {
+  /* Default Light Mode (Nuansa Biru Muda/Abu) */
+  --bg-body: #f8fafc;       /* Tidak putih polos, tapi abu sangat muda */
+  --bg-card: #ffffff;
+  --bg-sidebar: #1e293b;    /* Sidebar tetap gelap agar kontras */
+  
+  --text-primary: #334155;
+  --text-secondary: #64748b;
+  --text-sidebar: #cbd5e1;
+  
+  --border-color: #e2e8f0;
+  --primary-color: #3b82f6; /* Biru yang lebih cerah */
+  
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  
+  --sidebar-width: 260px;
+  --sidebar-width-collapsed: 70px;
+  --header-height: 64px;
+}
+
+/* DARK MODE (Nuansa Gelap Elegan) */
+[data-theme="dark"] {
+  --bg-body: #0f172a;      /* Biru malam gelap */
+  --bg-card: #1e293b;      /* Card lebih terang sedikit */
+  --bg-sidebar: #020617;   /* Sidebar hitam pekat */
+  
+  --text-primary: #f1f5f9; /* Putih tulang */
+  --text-secondary: #94a3b8;
+  --text-sidebar: #64748b;
+  
+  --border-color: #1e293b; /* Border nyaris hilang */
+  --primary-color: #60a5fa;
+  
+  --shadow-sm: none;       /* Shadow di dark mode biasanya dikurangi */
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+}
+
+/* RESET & BASE */
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif; /* Font lebih modern */
+  background-color: var(--bg-body);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease; /* Animasi transisi tema */
+  -webkit-font-smoothing: antialiased;
+}
+
+/* UTILITIES */
+.card {
+  background: var(--bg-card);
+  border-radius: 12px;         /* Sudut membulat */
+  box-shadow: var(--shadow-md); /* Ada bayangan biar 'pop' */
+  border: 1px solid var(--border-color);
+}
+
+.btn-icon {
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--text-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 8px; /* Kotak membulat lebih modern drpd bulat penuh */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon:hover {
+  background-color: rgba(125, 125, 125, 0.1);
+  color: var(--primary-color);
+}

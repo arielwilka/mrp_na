@@ -1,0 +1,54 @@
+<div class="pagination">
+        
+    <div class="rows-per-page">
+        <span>Baris per hal:</span>
+        
+        <select v-model="pagination.pageSize" @change="handlePageSizeChange" class="size-select">
+        <option :value="10">10</option>
+        <option :value="50">50</option>
+        <option :value="100">100</option>
+        <option :value="-1">Custom</option>
+        </select>
+
+        <input 
+        v-if="pagination.isCustom" 
+        type="number" 
+        v-model="customSizeInput" 
+        @change="applyCustomSize"
+        @keyup.enter="applyCustomSize"
+        class="custom-size-input"
+        title="Tekan Enter untuk menerapkan"
+        >
+    </div>
+
+    <span class="page-info">
+        {{ pagination.from }} - {{ pagination.to }} dari {{ pagination.total }}
+    </span>
+
+    <div class="page-controls">
+        <button 
+        :disabled="!pagination.prev" 
+        @click="changePage(pagination.current - 1)"
+        class="btn-nav"
+        >
+        Prev
+        </button>
+        
+        <button 
+        v-for="p in pagination.pages" :key="p" 
+        :class="{ active: p === pagination.current }"
+        @click="changePage(p)"
+        class="btn-page"
+        >
+        {{ p }}
+        </button>
+        
+        <button 
+        :disabled="!pagination.next" 
+        @click="changePage(pagination.current + 1)"
+        class="btn-nav"
+        >
+        Next
+        </button>
+    </div>
+</div>

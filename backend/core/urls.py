@@ -39,6 +39,7 @@ urlpatterns = [
 
     # 2. URL Modul VIN RECORD
     path('api/vin-record/', include('vin_record.urls')), 
+    path('api/traceability/', include('traceability.urls')),
 
     # 3. URL Modul BATTERY RECORD (BARU)
     # Saya gunakan prefix 'api/battery/' agar endpointnya menjadi:

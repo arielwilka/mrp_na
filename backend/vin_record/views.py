@@ -1,94 +1,52 @@
-from rest_framework import viewsets, permissions, status, filters
+from rest_framework import viewsets, permissions, filters, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.exceptions import ValidationError, PermissionDenied
-from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+from rest_framework.exceptions import ValidationError
+from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction, IntegrityError
+from .pagination import StandardPagination
+from .models import VinRecord, VinPrefix, YearCode
+from product.models import ProductType, ProductVariant, ProductColor
+from product.serializers import ProductTypeSerializer
+# Pastikan Anda mengimport semua Serializer di sini
+from .serializers import VinRecordSerializer, VinPrefixSerializer, YearCodeSerializer
 
-# Import Model
-from .models import VehicleType, YearCode, VinRecord, VinPrefix, VehicleVariant, VehicleColor
-from core.models import RolePermission 
-
-# Import Serializer
-from .serializers import (
-    VehicleTypeSerializer, YearCodeSerializer, VinRecordSerializer,
-    VinPrefixSerializer, VehicleVariantSerializer, VehicleColorSerializer
-)
-
-# --- PAGINATION ---
-class StandardPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = 'page_size'
-    max_page_size = 1000
-
-# --- PERMISSION: SEPARATION OF DUTIES ---
-class IsVinMasterOrReadOnly(permissions.BasePermission):
-    def has_permission(self, request, view):
-        if not request.user.is_authenticated:
-            return False
-        if request.method in permissions.SAFE_METHODS:
-            return True
-        if request.user.is_superuser:
-            return True
-            
-        return RolePermission.objects.filter(
-            role__user_roles__user=request.user,
-            module__code='vin_master',
-            can_read=True
-        ).exists()
+# Import utils hitung check digit
+from .utils import calculate_vin_check_digit
 
 # ==========================================
-# GROUP 1: MASTER DATA (CRUD Protected)
+# 1. VIEWSET TAHUN (YearCode)
 # ==========================================
-
-class VehicleTypeViewSet(viewsets.ModelViewSet):
-    queryset = VehicleType.objects.all()
-    serializer_class = VehicleTypeSerializer
-    permission_classes = [IsVinMasterOrReadOnly]
-    pagination_class = None
-
 class YearCodeViewSet(viewsets.ModelViewSet):
-    queryset = YearCode.objects.all()
+    queryset = YearCode.objects.all().order_by('-year')
     serializer_class = YearCodeSerializer
-    permission_classes = [IsVinMasterOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
     pagination_class = None
-
+# ==========================================
+# 2. VIEWSET PREFIX (VinPrefix)
+# ==========================================
 class VinPrefixViewSet(viewsets.ModelViewSet):
-    queryset = VinPrefix.objects.select_related('vehicle_type', 'year_code').all() # Optimize Query
+    queryset = VinPrefix.objects.select_related('product_type', 'year_code').all()
     serializer_class = VinPrefixSerializer
-    permission_classes = [IsVinMasterOrReadOnly]
-    pagination_class = None
-
-class VehicleVariantViewSet(viewsets.ModelViewSet):
-    queryset = VehicleVariant.objects.all()
-    serializer_class = VehicleVariantSerializer
-    permission_classes = [IsVinMasterOrReadOnly]
-    pagination_class = None
-
-class VehicleColorViewSet(viewsets.ModelViewSet):
-    queryset = VehicleColor.objects.all()
-    serializer_class = VehicleColorSerializer
-    permission_classes = [IsVinMasterOrReadOnly]
-    pagination_class = None
-
-
+    permission_classes = [permissions.IsAuthenticated]
+    
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['product_type', 'year_code']
+    pagination_class = StandardPagination
 # ==========================================
-# GROUP 2: VIN RECORD (Operational)
+# 3. VIEWSET VIN RECORD (Main Logic)
 # ==========================================
-
 class VinRecordViewSet(viewsets.ModelViewSet):
     queryset = VinRecord.objects.select_related(
-        'vehicle_type', 'production_year', 'variant', 'color', 'created_by'
+        'product_type', 'production_year', 'variant', 'color', 'created_by'
     ).order_by('-id')
     
     serializer_class = VinRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
-    
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['vehicle_type', 'production_year']
+    filterset_fields = ['product_type', 'production_year']
     search_fields = ['full_vin', 'serial_number']
 
     def get_throttles(self):
@@ -125,47 +83,70 @@ class VinRecordViewSet(viewsets.ModelViewSet):
                 if qty <= 0 or qty > 5000:
                     return Response({'detail': 'Quantity harus 1 - 5000'}, status=400)
 
-                # Locking
+                # Locking Product
                 try:
-                    vehicle_type = VehicleType.objects.select_for_update().get(pk=data['vehicle_type'])
-                except VehicleType.DoesNotExist:
-                     return Response({'detail': 'Tipe Kendaraan tidak ditemukan'}, status=404)
+                    product_type = ProductType.objects.select_for_update().get(pk=data['product_type'])
+                except ProductType.DoesNotExist:
+                      return Response({'detail': 'Tipe Kendaraan tidak ditemukan'}, status=404)
+                
+                # Cek Trace (Sesuai model Anda: is_vin_trace)
+                if not product_type.is_vin_trace:
+                    return Response({
+                        'detail': f"GAGAL: Tipe '{product_type.name}' dikonfigurasi sebagai Non-VIN Trace."
+                    }, status=400)
 
                 production_year = YearCode.objects.get(pk=data['production_year'])
                 
                 variant_id = data.get('variant')
                 color_id = data.get('color')
                 
-                variant = VehicleVariant.objects.get(pk=variant_id) if variant_id else None
-                color = VehicleColor.objects.get(pk=color_id) if color_id else None
-
+                variant = ProductVariant.objects.get(pk=variant_id) if variant_id else None
+                color = ProductColor.objects.get(pk=color_id) if color_id else None
+                
                 # Prefix Rule
                 try:
-                    prefix_rule = VinPrefix.objects.get(vehicle_type=vehicle_type, year_code=production_year)
+                    prefix_rule = VinPrefix.objects.get(product_type=product_type, year_code=production_year)
                 except VinPrefix.DoesNotExist:
                     return Response({'detail': 'Prefix belum disetting untuk tipe & tahun ini.'}, status=400)
 
-                # Loop Memory
+                # Persiapan Variabel Generator
+                wmi_vds = prefix_rule.wmi_vds
+                plant_code = prefix_rule.plant_code
+                year_char = production_year.code
+                
+                # Cek Config Check Digit (Sesuai model Anda: has_check_digit)
+                use_algo = product_type.has_check_digit
+                static_ninth = prefix_rule.static_ninth_digit or '0'
+
+                # Loop Generate
                 vin_objects = []
                 check_list = []
-                year_char = production_year.code
 
                 for i in range(qty):
                     current_num = start_serial + i
                     serial_str = str(current_num).zfill(6)
                     check_list.append(serial_str)
                     
-                    full_vin = f"{prefix_rule.wmi_vds}{year_char}{prefix_rule.plant_code}{serial_str}"
+                    # LOGIKA HITUNG DIGIT 9 (Sama persis dengan models.save)
+                    final_ninth = static_ninth
+                    
+                    if use_algo:
+                        temp_vin = f"{wmi_vds}0{year_char}{plant_code}{serial_str}"
+                        calc = calculate_vin_check_digit(temp_vin)
+                        if calc != '?':
+                            final_ninth = calc
+                            
+                    full_vin = f"{wmi_vds}{final_ninth}{year_char}{plant_code}{serial_str}"
 
                     vin_objects.append(VinRecord(
-                        vehicle_type=vehicle_type, production_year=production_year,
+                        product_type=product_type, production_year=production_year,
                         variant=variant, color=color, serial_number=serial_str,
                         full_vin=full_vin, created_by=request.user
                     ))
 
-                # Pre-flight Check
+                # Pre-flight Check Duplikat
                 existing = VinRecord.objects.filter(
-                    vehicle_type=vehicle_type, production_year=production_year,
+                    product_type=product_type, production_year=production_year,
                     serial_number__in=check_list
                 ).values_list('serial_number', flat=True)
 
@@ -186,3 +167,13 @@ class VinRecordViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'KONFLIK DATA: Terjadi tabrakan saat proses.'}, status=409)
         except Exception as e:
             return Response({'detail': str(e)}, status=500)
+class TraceableProductTypeViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Endpoint khusus untuk dropdown di modul VIN.
+    HANYA menampilkan produk yang wajib ditrace (is_vin_trace=True).
+    Pagination dimatikan agar dropdown frontend menerima semua data sekaligus.
+    """
+    queryset = ProductType.objects.filter(is_vin_trace=True).order_by('name')
+    serializer_class = ProductTypeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None

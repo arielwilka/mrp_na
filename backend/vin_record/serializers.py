@@ -1,60 +1,57 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import VehicleType, VehicleVariant, VehicleColor, YearCode, VinRecord, VinPrefix
+from .models import YearCode, VinRecord, VinPrefix
 
-# --- 1. VARIANT & COLOR (Master Data) ---
-class VehicleVariantSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = VehicleVariant
-        fields = ['id', 'name', 'vehicle_type'] # Wajib ada vehicle_type untuk Create
+# --- Import Helper untuk ReadOnlyField ---
+# Kita tidak perlu mengimport Serializer lengkap dari product 
+# jika tujuannya hanya untuk CRUD VIN Record, cukup referensi ID.
 
-class VehicleColorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = VehicleColor
-        fields = ['id', 'name', 'vehicle_type'] # Wajib ada vehicle_type untuk Create
-
-# --- 2. PREFIX SERIALIZER (FIXED FOR FRONTEND CALCULATION) ---
+# --- 1. PREFIX SERIALIZER ---
 class VinPrefixSerializer(serializers.ModelSerializer):
-    # PENTING: Frontend 'VinCreatePage' butuh 'year_id' untuk mencocokkan dropdown tahun
-    year_id = serializers.ReadOnlyField(source='year_code.id') 
-    
-    # Helper display untuk tabel Master
-    vehicle_type_name = serializers.ReadOnlyField(source='vehicle_type.name')
+    year_id = serializers.ReadOnlyField(source='year_code.id')
+    product_type_name = serializers.ReadOnlyField(source='product_type.name')
     year_code_label = serializers.ReadOnlyField(source='year_code.year')
-
+    is_trace_active = serializers.ReadOnlyField(source='product_type.is_vin_trace')
     class Meta:
         model = VinPrefix
         fields = [
             'id', 
-            'vehicle_type', 'vehicle_type_name',
-            'year_code', 'year_id', 'year_code_label', # year_id WAJIB ADA
-            'wmi_vds', 'plant_code'
+            'product_type', 'product_type_name','is_trace_active',
+            'year_code', 'year_id', 'year_code_label',
+            'wmi_vds', 'plant_code', 'static_ninth_digit'
         ]
+    # --- VALIDASI BACKEND ---
+    def validate(self, data):
+        # 1. Ambil object product_type dari input
+        product_type = data.get('product_type')
 
-# --- 3. TYPE SERIALIZER (Nested untuk Frontend Dropdown) ---
-class VehicleTypeSerializer(serializers.ModelSerializer):
-    variants = VehicleVariantSerializer(many=True, read_only=True)
-    colors = VehicleColorSerializer(many=True, read_only=True)
-    prefixes = VinPrefixSerializer(many=True, read_only=True)
+        # 2. Cek apakah ada update (instance) atau create baru
+        # Jika partial update, mungkin product_type tidak dikirim, jadi ambil dari instance lama
+        if not product_type and self.instance:
+            product_type = self.instance.product_type
 
-    class Meta:
-        model = VehicleType
-        fields = ['id', 'name', 'variants', 'colors', 'prefixes']
+        # 3. LOGIC UTAMA: Tolak jika is_vin_trace False
+        if product_type and not product_type.is_vin_trace:
+            raise serializers.ValidationError({
+                "product_type": f"Tipe '{product_type.name}' diset 'No Trace'. Tidak diizinkan membuat konfigurasi VIN."
+            })
 
-# --- 4. YEAR SERIALIZER ---
+        return data
+
+# --- 2. YEAR SERIALIZER ---
 class YearCodeSerializer(serializers.ModelSerializer):
     class Meta:
         model = YearCode
         fields = '__all__'
 
-# --- 5. VIN RECORD SERIALIZER (FIXED FOR LIST) ---
+# --- 3. VIN RECORD SERIALIZER ---
 class VinRecordSerializer(serializers.ModelSerializer):
-    # Field Flat String untuk Tampilan Tabel Frontend
-    vehicle_type_name = serializers.ReadOnlyField(source='vehicle_type.name')
+    # Helper Display (Flat)
+    product_type_name = serializers.ReadOnlyField(source='product_type.name')
     production_year_code = serializers.ReadOnlyField(source='production_year.code')
     created_by_name = serializers.ReadOnlyField(source='created_by.username')
     
-    # PENTING: Mengirim nama langsung agar tabel tidak kosong
+    # Mengambil nama variant & color dari relasi (Product App)
     variant_name = serializers.ReadOnlyField(source='variant.name')
     color_name = serializers.ReadOnlyField(source='color.name')
     

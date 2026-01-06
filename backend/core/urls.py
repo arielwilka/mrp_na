@@ -2,8 +2,12 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-# --- HANYA IMPORT VIEWSETS MILIK CORE ---
-from .views import (
+# --- TAMBAHAN PENTING UNTUK GAMBAR ---
+from django.conf import settings
+from django.conf.urls.static import static
+
+# --- IMPORT VIEWSETS CORE ---
+from core.views import (
     CustomAuthToken, 
     RoleViewSet, 
     RolePermissionViewSet, 
@@ -14,12 +18,9 @@ from .views import (
     PrintTemplateViewSet
 )
 
-# [HAPUS BAGIAN INI] - Jangan import view vin_record disini lagi!
-# from vin_record.views import ... (HAPUS)
-
 router = DefaultRouter()
 
-# --- REGISTER HANYA MODUL CORE ---
+# --- REGISTER MODUL CORE ---
 router.register(r'roles', RoleViewSet)
 router.register(r'role-permissions', RolePermissionViewSet)
 router.register(r'system-modules', SystemModuleViewSet)
@@ -28,18 +29,23 @@ router.register(r'user-roles', UserRoleViewSet)
 router.register(r'templates', PrintTemplateViewSet)
 router.register(r'label-modules', LabelModuleViewSet)
 
-# [HAPUS BAGIAN INI] - Jangan register vin disini!
-# router.register(r'types', VehicleTypeViewSet) ... (HAPUS)
-
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/login/', CustomAuthToken.as_view()), 
     
-    # 1. URL untuk Modul Core (User, Role, dll)
+    # 1. URL Modul Core
     path('api/', include(router.urls)), 
+    path('api/product/', include('product.urls')),
 
-    # 2. URL untuk Modul VIN RECORD (PENTING!)
-    # Django akan membaca file backend/vin_record/urls.py
-    # dan menggabungkannya ke bawah prefix 'api/'
-    path('api/', include('vin_record.urls')), 
+    # 2. URL Modul VIN RECORD
+    path('api/vin-record/', include('vin_record.urls')), 
+
+    # 3. URL Modul BATTERY RECORD (BARU)
+    # Saya gunakan prefix 'api/battery/' agar endpointnya menjadi:
+    # http://localhost:8000/api/battery/records/
+    path('api/battery/', include('battery_record.urls')), 
 ]
+
+# --- KONFIGURASI AGAR GAMBAR BISA DIBUKA (DEV MODE) ---
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

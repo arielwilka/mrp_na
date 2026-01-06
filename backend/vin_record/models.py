@@ -1,85 +1,81 @@
 from django.db import models
 from django.contrib.auth.models import User
-# 1. MODEL TAHUN
+# Import rumus dari utils agar rapi
+from .utils import calculate_vin_check_digit 
+from product.models import ProductType, ProductVariant, ProductColor
+
 class YearCode(models.Model):
     year = models.IntegerField(unique=True)
     code = models.CharField(max_length=1)
     def __str__(self): return f"{self.year} ({self.code})"
 
-# 2. MODEL TIPE KENDARAAN
-class VehicleType(models.Model):
-    name = models.CharField(max_length=100)
-    # Field lain dipindah ke VinPrefix
-    def __str__(self): return self.name
-
-# 3. MODEL PREFIX (Penghubung Tipe + Tahun)
 class VinPrefix(models.Model):
-    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE, related_name='prefixes')
+    product_type = models.ForeignKey(ProductType, on_delete=models.CASCADE, related_name='vin_prefixes')
     year_code = models.ForeignKey(YearCode, on_delete=models.CASCADE, related_name='prefixes')
     
-    wmi_vds = models.CharField(max_length=10, help_text="Contoh: MH1RW")
-    plant_code = models.CharField(max_length=1, help_text="Contoh: K")
-
+    wmi_vds = models.CharField(max_length=8, help_text="Masukan 8 Karakter pertama (WMI + VDS)")
+    plant_code = models.CharField(max_length=1, help_text="Kode Pabrik (1 Digit)")
+    static_ninth_digit = models.CharField(
+        max_length=1, default='0', help_text="Dipakai jika Check Digit dimatikan."
+    )
     class Meta:
-        unique_together = ('vehicle_type', 'year_code') 
+        unique_together = ('product_type', 'year_code') 
 
     def __str__(self):
-        return f"{self.vehicle_type.name} - {self.year_code.year}"
+        return f"{self.product_type.code} / {self.year_code.year}"
 
-# 4. MODEL VARIAN
-class VehicleVariant(models.Model):
-    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE, related_name='variants')
-    name = models.CharField(max_length=100)
-    def __str__(self): return self.name
-
-# 5. MODEL WARNA
-class VehicleColor(models.Model):
-    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE, related_name='colors')
-    name = models.CharField(max_length=100)
-    def __str__(self): return self.name
-
-# 6. MODEL VIN RECORD (Yang Error Tadi Disini)
 class VinRecord(models.Model):
-    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.PROTECT)
+    product_type = models.ForeignKey(ProductType, on_delete=models.PROTECT)
+    variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
+    color = models.ForeignKey(ProductColor, on_delete=models.PROTECT)
     production_year = models.ForeignKey(YearCode, on_delete=models.PROTECT)
-    variant = models.ForeignKey(VehicleVariant, on_delete=models.SET_NULL, null=True, blank=True)
-    color = models.ForeignKey(VehicleColor, on_delete=models.SET_NULL, null=True, blank=True)
+    
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    serial_number = models.CharField(max_length=6)
+    
+    serial_number = models.CharField(max_length=6) 
     full_vin = models.CharField(max_length=17, unique=True, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
         ordering = ['-id']
-        # Opsional: Pastikan serial number unik untuk tiap tipe & tahun
-        constraints = [
-            models.UniqueConstraint(
-                fields=['vehicle_type', 'production_year', 'serial_number'], 
-                name='unique_serial_per_type_year'
-            )
-        ]
+
     def save(self, *args, **kwargs):
-        # Logic Generate Full VIN
-        if not self.full_vin:
+        # LOGIC FIX: Hapus pengecekan "if not full_vin".
+        # Backend harus menjadi Source of Truth. Selalu generate ulang VIN
+        # berdasarkan komponen agar Check Digit terjamin benar.
+        
+        if self.product_type and self.production_year and self.serial_number:
             try:
-                # Ambil rule prefix berdasarkan Tipe & Tahun
-                # Note: field di VinPrefix namanya 'year_code', field di sini 'production_year'
-                prefix_rule = VinPrefix.objects.get(
-                    vehicle_type=self.vehicle_type,
-                    year_code=self.production_year 
+                # 1. Ambil Rule Prefix
+                prefix = VinPrefix.objects.get(
+                    product_type=self.product_type,
+                    year_code=self.production_year
                 )
                 
-                year_char = self.production_year.code 
+                wmi_vds = prefix.wmi_vds
+                plant = prefix.plant_code
+                year_char = self.production_year.code
+                serial = self.serial_number.zfill(6) # Pastikan 6 digit
                 
-                # RUMUS: WMI_VDS + YEAR_CODE + PLANT_CODE + SERIAL
-                self.full_vin = f"{prefix_rule.wmi_vds}{year_char}{prefix_rule.plant_code}{self.serial_number}"
+                # 2. Cek Config Product (Sesuai model Anda: has_check_digit)
+                use_algo = self.product_type.has_check_digit
+                ninth_digit = prefix.static_ninth_digit or '0'
+
+                # 3. Hitung Digit 9
+                if use_algo:
+                    # Susun dummy VIN dengan '0' di digit 9
+                    temp_vin = f"{wmi_vds}0{year_char}{plant}{serial}"
+                    calc = calculate_vin_check_digit(temp_vin)
+                    if calc != '?':
+                        ninth_digit = calc
+                
+                # 4. Set VIN Final (Overwrite inputan frontend)
+                self.full_vin = f"{wmi_vds}{ninth_digit}{year_char}{plant}{serial}"
                 
             except VinPrefix.DoesNotExist:
-                # Fallback jika admin lupa input prefix
-                year_char = self.production_year.code
-                self.full_vin = f"UNKNOWN{year_char}?{self.serial_number}"
+                pass # Biarkan error validasi database menangani jika full_vin kosong
 
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.full_vin or self.serial_number
+        return self.full_vin

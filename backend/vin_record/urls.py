@@ -1,24 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (
-    VinRecordViewSet, 
-    VehicleTypeViewSet, 
-    YearCodeViewSet, 
-    VinPrefixViewSet,        # <--- Sudah ada
-    VehicleVariantViewSet,   # <--- Sudah ada
-    VehicleColorViewSet      # <--- Sudah ada
-)
+from .views import VinRecordViewSet, YearCodeViewSet, VinPrefixViewSet,TraceableProductTypeViewSet
 
 router = DefaultRouter()
 
-# Daftarkan semua URL milik modul VIN disini
+# Hanya mendaftarkan URL milik domain VIN Record
 router.register(r'records', VinRecordViewSet, basename='vin-record')
-router.register(r'types', VehicleTypeViewSet)
 router.register(r'years', YearCodeViewSet)
-router.register(r'vin-prefixes', VinPrefixViewSet)
-router.register(r'variants', VehicleVariantViewSet)
-router.register(r'colors', VehicleColorViewSet)
-
+router.register(r'prefixes', VinPrefixViewSet)
+router.register(r'product-options', TraceableProductTypeViewSet, basename='vin-product-options')
 urlpatterns = [
     path('', include(router.urls)),
 ]

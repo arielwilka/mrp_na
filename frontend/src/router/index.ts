@@ -13,8 +13,14 @@ import DashboardHome from '../modules/dashboard/views/DashboardHome.vue';
 // VIN Record Module
 import VinCreatePage from '../modules/vin_record/views/VinCreatePage.vue';
 import VinListPage from '../modules/vin_record/views/VinListPage.vue';
-// [BARU] Import halaman Master Konfigurasi
 import VinMasterPage from '../modules/vin_record/views/VinMasterPage.vue'; 
+
+// [BARU] Product Module
+import ProductMasterPage from '../modules/product/views/ProductMasterPage.vue';
+
+// Battery Record Module
+import BatteryQCPage from '../modules/battery_record/views/BatteryQCPage.vue';
+import BatteryHistoryPage from '../modules/battery_record/views/BatteryHistoryPage.vue';
 
 // Admin Module
 import LabelDesigner from '../modules/admin/views/LabelDesigner.vue';
@@ -26,9 +32,9 @@ declare module 'vue-router' {
     requiresAuth?: boolean;
     requiresGuest?: boolean;
     requiresSuperuser?: boolean;
-    module?: string; // Shorthand module name
+    module?: string; // Shorthand module name untuk permission check
     requiresModule?: string;    
-    requiresPermission?: 'read' | 'create'; 
+    requiresPermission?: 'read' | 'create' | 'delete'; 
   }
 }
 
@@ -62,6 +68,15 @@ const routes: Array<RouteRecordRaw> = [
         component: DashboardHome
       },
 
+      // --- [BARU] MODUL PRODUCT MASTER ---
+      {
+        path: 'product-master', // URL: /product-master
+        name: 'ProductMaster',
+        component: ProductMasterPage,
+        // Meta: module 'product_master' (Pastikan permission ini ada di backend/store)
+        meta: { module: 'product_master', requiresPermission: 'read' }
+      },
+
       // --- MODUL VIN RECORD ---
       {
         path: 'vin-record',
@@ -85,14 +100,40 @@ const routes: Array<RouteRecordRaw> = [
             // Izin: vin_record (Operational)
             meta: { module: 'vin_record', requiresPermission: 'create' }
           },
-          // [BARU] ROUTE MASTER KONFIGURASI
+          // Master Konfigurasi VIN (Prefix, Year Code)
           {
             path: 'master', // URL: /vin-record/master
             name: 'VinMaster',
             component: VinMasterPage,
-            // PENTING: Permission mengarah ke 'vin_master' (Configuration)
-            // Ini memisahkan Staff Produksi vs Manager Engineering
             meta: { module: 'vin_master', requiresPermission: 'read' }
+          }
+        ]
+      },
+      
+      // --- MODUL BATTERY RECORD ---
+      {
+        path: 'battery-qc',
+        component: EmptyRouterView, 
+        children: [
+          {
+            path: '', // URL: /battery-qc
+            name: 'BatteryQC',
+            component: BatteryQCPage,
+            meta: { 
+                module: 'battery_record', 
+                requiresPermission: 'read', 
+                title: 'Battery Quality Control' 
+            }
+          },
+          {
+            path: 'list', // URL: /battery-qc/list
+            name: 'BatteryList',
+            component: BatteryHistoryPage,
+            meta: { 
+                module: 'battery_record', 
+                requiresPermission: 'read',  
+                title: 'Riwayat QC Battery'  
+            }
           }
         ]
       },
@@ -147,12 +188,10 @@ router.beforeEach((to, _from, next) => {
 
   // 3. Cek Superuser (Recursive Check)
   if (to.matched.some(record => record.meta.requiresSuperuser) && !authStore.isSuperuser) {
-    // alert("Akses Ditolak: Halaman khusus Superuser/Admin."); // Opsional: Matikan alert agar tidak annoying saat redirect
     return next('/');
   }
 
   // 4. Cek Akses Modul Dynamic
-  // Support 'meta.module' atau 'meta.requiresModule'
   const requiredModule = to.meta.module || to.meta.requiresModule;
   
   if (requiredModule) {
@@ -160,7 +199,6 @@ router.beforeEach((to, _from, next) => {
     
     // Cek ke Pinia Store
     if (!authStore.can(requiredModule, action)) {
-      // Jika user mencoba akses URL Master tapi tidak punya hak akses vin_master
       alert(`⛔ AKSES DITOLAK\n\nAnda tidak memiliki izin '${action}' untuk modul '${requiredModule}'.`);
       return next('/');
     }

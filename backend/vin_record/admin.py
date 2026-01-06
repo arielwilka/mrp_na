@@ -1,49 +1,53 @@
 from django.contrib import admin
-from .models import VehicleType, VehicleVariant, VehicleColor, YearCode, VinRecord, VinPrefix
-
-# --- INLINES ---
-# Agar bisa input Varian, Warna, dan Prefix langsung di dalam halaman Tipe Kendaraan
-class VehicleVariantInline(admin.TabularInline):
-    model = VehicleVariant
-    extra = 1
-
-class VehicleColorInline(admin.TabularInline):
-    model = VehicleColor
-    extra = 1
-
-class VinPrefixInline(admin.TabularInline):
-    model = VinPrefix
-    extra = 1
-
-# --- ADMIN CLASSES ---
-
-class VehicleTypeAdmin(admin.ModelAdmin):
-    list_display = ('name',) # Hapus 'type_code' karena sudah dipindah ke VinPrefix
-    search_fields = ('name',)
-    # Tampilkan tabel input anak di dalam parent biar gampang
-    inlines = [VinPrefixInline, VehicleVariantInline, VehicleColorInline]
-
-class VinPrefixAdmin(admin.ModelAdmin):
-    # Sesuaikan dengan field baru: vehicle_type, year_code, wmi_vds, plant_code
-    list_display = ('vehicle_type', 'year_code', 'wmi_vds', 'plant_code')
-    list_filter = ('vehicle_type', 'year_code')
-    search_fields = ('wmi_vds', 'vehicle_type__name')
-
+from .models import YearCode, VinPrefix, VinRecord
+from product.models import ProductType
+# 1. ADMIN UNTUK TAHUN
+@admin.register(YearCode)
 class YearCodeAdmin(admin.ModelAdmin):
     list_display = ('year', 'code')
-    ordering = ('year',)
+    ordering = ('-year',)
+    
+    # --- [PERBAIKAN DISINI] ---
+    # Wajib ada karena Model ini dipanggil via autocomplete_fields oleh admin lain
+    search_fields = ('year', 'code') 
 
+# 2. ADMIN UNTUK PREFIX
+@admin.register(VinPrefix)
+class VinPrefixAdmin(admin.ModelAdmin):
+    list_display = ('product_type', 'year_code', 'wmi_vds', 'plant_code')
+    list_filter = ('product_type', 'year_code')
+    search_fields = ('product_type__name', 'wmi_vds')
+    
+    # Ini yang menyebabkan error tadi (karena YearCodeAdmin belum punya search_fields)
+    autocomplete_fields = ['year_code'] 
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "product_type":
+            # QUERY DIBATASI DISINI
+            # Hanya tampilkan produk yang is_vin_trace = True
+            kwargs["queryset"] = ProductType.objects.filter(is_vin_trace=True)
+            
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+# 3. ADMIN UNTUK VIN RECORD
+@admin.register(VinRecord)
 class VinRecordAdmin(admin.ModelAdmin):
-    list_display = ('serial_number', 'vehicle_type', 'production_year', 'created_at')
-    list_filter = ('vehicle_type', 'production_year')
-    search_fields = ('serial_number',)
+    list_display = ('full_vin', 'serial_number', 'product_type', 'variant', 'production_year', 'created_at')
+    list_filter = ('product_type', 'production_year', 'created_at')
+    search_fields = ('full_vin', 'serial_number')
+    readonly_fields = ('full_vin', 'created_at', 'created_by')
+    
+    # PENTING: Gunakan autocomplete untuk Varian & Color
+    # Agar admin bisa mencari varian berdasarkan nama produk (misal ketik "Vario")
+    # Karena dropdown biasa akan memuat SEMUA varian dari semua produk (bisa ribuan).
+    autocomplete_fields = ['variant', 'color', 'production_year']
 
-# --- REGISTER ---
-admin.site.register(VehicleType, VehicleTypeAdmin)
-admin.site.register(VinPrefix, VinPrefixAdmin)
-admin.site.register(YearCode, YearCodeAdmin)
-admin.site.register(VinRecord, VinRecordAdmin)
-# Variant & Color tidak wajib diregister terpisah jika sudah ada Inline di VehicleType,
-# tapi jika mau tetap bisa diakses terpisah, silakan register:
-admin.site.register(VehicleVariant)
-admin.site.register(VehicleColor)
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "product_type":
+            # Hanya tampilkan produk yang is_vin_trace = True
+            kwargs["queryset"] = ProductType.objects.filter(is_vin_trace=True)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)

@@ -12,14 +12,20 @@ class SerialRuleAdmin(admin.ModelAdmin):
 
 @admin.register(PartMaster)
 class PartMasterAdmin(admin.ModelAdmin):
-    list_display = ('part_number', 'part_name', 'validation_rule')
+    # Menampilkan Flag Logic QC di tabel
+    list_display = ('part_number', 'part_name', 'is_qc_required', 'is_unique_serial', 'validation_rule')
+    
+    # Filter samping agar mudah mencari mana yang Wajib QC
+    list_filter = ('is_qc_required', 'is_unique_serial')
+    
+    # Search box
     search_fields = ('part_number', 'part_name')
 
 # Buat Tampilan Tabel (Inline) untuk Requirements
 class RequirementInline(admin.TabularInline):
     model = TraceabilityRequirement
     extra = 1
-    autocomplete_fields = ['part_master'] # Biar cari part gampang
+    autocomplete_fields = ['part_master']
 
 @admin.register(TraceabilityVersion)
 class TraceabilityVersionAdmin(admin.ModelAdmin):
@@ -27,8 +33,4 @@ class TraceabilityVersionAdmin(admin.ModelAdmin):
     list_filter = ('product_type', 'is_active')
     search_fields = ('product_type__name', 'version_code')
     
-    # Menampilkan Form Requirement di dalam Halaman Version
     inlines = [RequirementInline]
-    
-    # Logic agar hanya ada 1 Versi Aktif per Produk (Opsional/Advanced)
-    # Bisa ditambahkan di save_model jika perlu

@@ -40,6 +40,11 @@ urlpatterns = [
     # 2. URL Modul VIN RECORD
     path('api/vin-record/', include('vin_record.urls')), 
     path('api/traceability/', include('traceability.urls')),
+    # 4. URL Modul QC (TRANSACTION: Inventory Fisik & Inspection)
+    # Ini modul baru yang menangani Baterai & Part lainnya.
+    # Endpoint contoh: http://localhost:8000/api/qc/submit-result/
+    # Note: Kita arahkan langsung ke folder api karena logic ada disana
+    path('api/qc/', include('qc.urls')),
 
     # 3. URL Modul BATTERY RECORD (BARU)
     # Saya gunakan prefix 'api/battery/' agar endpointnya menjadi:

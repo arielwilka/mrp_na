@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import SerialRuleViewSet, PartMasterViewSet, TraceabilityVersionViewSet
+from .utils import validate_serial_number
 
 router = DefaultRouter()
 

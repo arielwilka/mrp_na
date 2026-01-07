@@ -65,7 +65,7 @@ class PartMasterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PartMaster
-        fields = ['id', 'part_number', 'part_name', 'validation_rule', 'rule_name', 'rule_code', 'supplier', 'description', 'created_at']
+        fields = ['id', 'part_number', 'part_name', 'validation_rule', 'rule_name', 'rule_code','is_qc_required', 'is_unique_serial', 'supplier', 'description', 'created_at']
 
 
 # ==========================================

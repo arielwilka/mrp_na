@@ -32,6 +32,9 @@ import PartList from '../modules/traceability/views/PartList.vue';
 import PartForm from '../modules/traceability/views/PartForm.vue';
 import BOMList from '../modules/traceability/views/BOMList.vue';
 import BOMForm from '../modules/traceability/views/BOMForm.vue';
+import QCStation from '../modules/qc/views/QCStation.vue';
+import PartTemplate from '../modules/traceability/views/PartTemplate.vue';
+import QCList from '../modules/qc/views/QCList.vue';
 // --- DEFINISI META DATA ---
 declare module 'vue-router' {
   interface RouteMeta {
@@ -127,6 +130,13 @@ const routes: Array<RouteRecordRaw> = [
             props: true,
             meta: { module: 'traceability', requiresPermission: 'create' }
           },
+          {
+            path: 'parts/:id/template',
+            name: 'PartTemplate',
+            component: PartTemplate,
+            props: true,
+            meta: { module: 'traceability', requiresPermission: 'create', title: 'Setup QC Parameters' }
+          },
 
           // 3. BOM CONFIG
           {
@@ -148,6 +158,37 @@ const routes: Array<RouteRecordRaw> = [
             props: true,
             meta: { module: 'traceability', requiresPermission: 'create' }
           }
+        ]
+      },
+      {
+        path: 'qc',
+        component: EmptyRouterView, // Gunakan wrapper agar URL rapi (/qc/station)
+        children: [
+          {
+            path: 'station', // URL: /qc/station
+            name: 'QCStation',
+            component: QCStation,
+            meta: { 
+              module: 'qc', // Sesuaikan dengan nama app di backend
+              requiresPermission: 'create', // Operator butuh akses create/write untuk submit
+              title: 'QC Workstation' 
+            }
+          },
+          {
+            path: 'history', // URL: /qc/history
+            name: 'QCList',
+            component: QCList,
+            meta: { module: 'qc', requiresPermission: 'read', title: 'Riwayat QC' }
+          }
+          // Jika nanti Anda buat halaman history:
+          /*
+          {
+            path: 'history',
+            name: 'QCHistory',
+            component: QCHistory,
+            meta: { module: 'qc', requiresPermission: 'read' }
+          }
+          */
         ]
       },
 

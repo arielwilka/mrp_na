@@ -4,7 +4,7 @@
       <div class="flex justify-between items-center">
         <div>
           <h2>{{ isEdit ? 'Edit Part' : 'Tambah Part Baru' }}</h2>
-          <p>Detail informasi komponen dan aturan validasi.</p>
+          <p>Detail informasi komponen, aturan validasi, dan konfigurasi stok.</p>
         </div>
         <button @click="router.back()" class="btn-secondary">&larr; Kembali</button>
       </div>
@@ -33,13 +33,33 @@
                 {{ rule.code }} - {{ rule.name }}
               </option>
             </select>
-            <small class="text-muted block mt-1">Jika kosong, part ini bisa discan dengan barcode apapun.</small>
+          </div>
+
+          <div class="grid-2-col">
+            <div class="form-group checkbox-wrapper">
+              <label class="flex items-start cursor-pointer">
+                <input type="checkbox" v-model="form.is_qc_required" class="mt-1 mr-2" />
+                <div>
+                  <span class="font-bold text-slate-700">Wajib QC / Receiving?</span>
+                  <small class="text-muted block">Jika aktif, barang harus discan di modul QC sebelum stok tersedia (OK).</small>
+                </div>
+              </label>
+            </div>
+
+            <div class="form-group checkbox-wrapper">
+              <label class="flex items-start cursor-pointer">
+                <input type="checkbox" v-model="form.is_unique_serial" class="mt-1 mr-2" />
+                <div>
+                  <span class="font-bold text-slate-700">Serial Number Unik?</span>
+                  <small class="text-muted block">Jika aktif, sistem menolak SN ganda. Jika mati, dianggap Batch/Lot.</small>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div class="form-group">
             <label>Supplier / Vendor</label>
-            <input v-model="form.supplier" type="text" class="input" place
-            holder="Ex: PT. GS Battery" />
+            <input v-model="form.supplier" type="text" class="input" placeholder="Ex: PT. GS Battery" />
           </div>
 
           <div class="flex justify-end pt-4 border-t mt-6">
@@ -61,24 +81,28 @@ const route = useRoute();
 const router = useRouter();
 const isEdit = computed(() => !!route.params.id);
 
-const form = reactive<Part>({ part_number: '', part_name: '', validation_rule: null });
+// Tambahkan default value untuk field baru
+const form = reactive<Part>({ 
+  part_number: '', 
+  part_name: '', 
+  validation_rule: null,
+  is_qc_required: true,   // Default True
+  is_unique_serial: true, // Default True
+  supplier: ''
+});
+
 const rules = ref<Rule[]>([]);
 
 onMounted(async () => {
   try {
-    // 1. Load Dropdown Rules
     const ruleRes = await api.getRules();
-    
-    // --- PERBAIKAN LOGIC DATA (Handling Pagination) ---
     const rawData = ruleRes.data;
     if (Array.isArray(rawData)) {
         rules.value = rawData;
     } else {
-        // Jika format { results: [...] }
         rules.value = rawData['results'] || []; 
     }
 
-    // 2. Load Data Part (Jika Mode Edit)
     if (isEdit.value) {
       const { data } = await api.getPart(Number(route.params.id));
       Object.assign(form, data);
@@ -98,7 +122,7 @@ const save = async () => {
 </script>
 
 <style scoped>
-/* Gunakan Style Global yang sama */
+/* Reuse style global + tambahan */
 .master-page { padding: 24px; max-width: 1000px; margin: 0 auto; color: #334155; }
 .header { margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; }
 .header h2 { margin: 0; color: #1e293b; font-size: 1.5rem; }
@@ -117,6 +141,15 @@ const save = async () => {
 .justify-end { justify-content: flex-end; }
 .items-center { align-items: center; }
 .text-red-500 { color: #ef4444; }
-.text-muted { color: #94a3b8; }
+.text-muted { color: #94a3b8; font-weight: 400; font-size: 0.8rem; margin-top: 2px;}
 .max-w-2xl { max-width: 672px; }
+
+/* Styles tambahan untuk layout checkbox */
+.grid-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.checkbox-wrapper { background: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; border-radius: 6px; }
+.checkbox-wrapper input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+.cursor-pointer { cursor: pointer; }
+.font-bold { font-weight: 600; }
+.mr-2 { margin-right: 12px; }
+.mt-1 { margin-top: 4px; }
 </style>

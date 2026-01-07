@@ -5,20 +5,15 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import SerialRule, PartMaster, TraceabilityVersion
 from .serializers import SerialRuleSerializer, PartMasterSerializer, TraceabilityVersionSerializer
-
+from .utils import validate_serial_number
 # ==========================================
 # 1. SERIAL RULE VIEWSET (Dengan Logic Validator)
 # ==========================================
 class SerialRuleViewSet(viewsets.ModelViewSet):
+    # ... (Queryset & Serializer sama) ...
     queryset = SerialRule.objects.prefetch_related('segments').all().order_by('-created_at')
     serializer_class = SerialRuleSerializer
-    permission_classes = [permissions.IsAuthenticated]
     
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['name', 'code']
-
-    # --- ACTION: TEST VALIDATOR (POST) ---
-    # URL: /api/traceability/rules/{id}/test-validate/
     @action(detail=True, methods=['post'], url_path='test-validate')
     def test_validate(self, request, pk=None):
         rule = self.get_object()
@@ -27,12 +22,14 @@ class SerialRuleViewSet(viewsets.ModelViewSet):
         if not scan_input:
             return Response({'status': 'FAIL', 'message': 'Input scan kosong'}, status=400)
 
-        is_valid, message = self._validate_rule(rule, scan_input)
-        
-        if is_valid:
+        try:
+            # Panggil fungsi dari utils
+            validate_serial_number(scan_input, rule)
             return Response({'status': 'OK', 'message': 'Format Sesuai ✅'})
-        else:
-            return Response({'status': 'FAIL', 'message': message}, status=400)
+            
+        except ValidationError as e:
+            # Tangkap error dari utils dan kirim ke frontend
+            return Response({'status': 'FAIL', 'message': e.message}, status=400)
 
     # --- LOGIC CORE VALIDASI ---
     def _validate_rule(self, rule, text):

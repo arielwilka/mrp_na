@@ -21,7 +21,10 @@ export interface Part {
   part_name: string;
   validation_rule: number | null;
   rule_code?: string;
+  rule_name?: string;
   supplier?: string;
+  is_qc_required?: boolean;
+  is_unique_serial?: boolean;
 }
 
 export interface Requirement {

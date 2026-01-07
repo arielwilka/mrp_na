@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'vin_record',
     'battery_record',
     'traceability',
+    'qc',
     'core',
 ]
 

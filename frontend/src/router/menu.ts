@@ -52,6 +52,35 @@ export const menuItems: MenuItem[] = [
         },
     ]
   },
+  // 3. QUALITY CONTROL (TRANSAKSI) - [UPDATED]
+  {
+    label: 'Quality Control',
+    icon: '✅',
+    children: [
+        {
+            label: 'QC Workstation',  // Halaman Operator
+            to: '/qc/station',
+            icon: '🛡️',
+            // Module name 'qc' sesuai dengan backend app dan permission
+            moduleName: 'qc' 
+        },
+        {
+            label: 'Riwayat QC',
+            to: '/qc/history',
+            icon: '📜',
+            moduleName: 'qc'
+        }
+        // (Opsional: Jika nanti Anda buat halaman history log QC)
+        /*
+        {
+            label: 'Inspection History',
+            to: '/qc/history',
+            icon: '📜',
+            moduleName: 'qc'
+        }
+        */
+    ]
+  },
   
   // --- MODUL VIN (Combined Group) ---
   {

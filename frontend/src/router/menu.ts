@@ -21,9 +21,35 @@ export const menuItems: MenuItem[] = [
         label: 'Product & Vehicle',
         to: '/product-master',
         icon: '📦',
-        // Menu ini hanya muncul jika user punya izin 'product_master.read'
         moduleName: 'product_master' 
       }
+    ]
+  },
+  
+  // 2. TRACEABILITY (Dipisah menjadi menu utama sendiri)
+  {
+    label: 'Traceability Config',
+    icon: '🔗',
+    // Sekarang dia ada di Level 1, anak-anaknya di Level 2 (Aman)
+    children: [
+        { 
+             label: 'Rules Engine', 
+             to: '/traceability/rules', 
+             icon: '📏',
+             moduleName: 'traceability' 
+        },
+        { 
+             label: 'Part Master', 
+             to: '/traceability/parts', 
+             icon: '⚙️',
+             moduleName: 'traceability' 
+        },
+        { 
+             label: 'BOM Versioning', 
+             to: '/traceability/bom', 
+             icon: '📑',
+             moduleName: 'traceability' 
+        },
     ]
   },
   

@@ -26,6 +26,12 @@ import BatteryHistoryPage from '../modules/battery_record/views/BatteryHistoryPa
 import LabelDesigner from '../modules/admin/views/LabelDesigner.vue';
 import RoleManager from '../modules/admin/views/RoleManager.vue';
 
+import RuleList from '../modules/traceability/views/RuleList.vue';
+import RuleForm from '../modules/traceability/views/RuleForm.vue';
+import PartList from '../modules/traceability/views/PartList.vue';
+import PartForm from '../modules/traceability/views/PartForm.vue';
+import BOMList from '../modules/traceability/views/BOMList.vue';
+import BOMForm from '../modules/traceability/views/BOMForm.vue';
 // --- DEFINISI META DATA ---
 declare module 'vue-router' {
   interface RouteMeta {
@@ -75,6 +81,74 @@ const routes: Array<RouteRecordRaw> = [
         component: ProductMasterPage,
         // Meta: module 'product_master' (Pastikan permission ini ada di backend/store)
         meta: { module: 'product_master', requiresPermission: 'read' }
+      },
+      {
+        path: 'traceability',
+        component: EmptyRouterView, // Agar bisa punya anak
+        children: [
+          // 1. RULES ENGINE
+          {
+            path: 'rules',
+            name: 'RuleList',
+            component: RuleList,
+            meta: { module: 'traceability', requiresPermission: 'read' }
+          },
+          {
+            path: 'rules/create',
+            name: 'RuleCreate',
+            component: RuleForm,
+            meta: { module: 'traceability', requiresPermission: 'create' }
+          },
+          {
+            path: 'rules/:id/edit',
+            name: 'RuleEdit',
+            component: RuleForm,
+            props: true,
+            meta: { module: 'traceability', requiresPermission: 'create' }
+          },
+
+          // 2. PART MASTER
+          {
+            path: 'parts',
+            name: 'PartList',
+            component: PartList,
+            meta: { module: 'traceability', requiresPermission: 'read' }
+          },
+          {
+            path: 'parts/create',
+            name: 'PartCreate',
+            component: PartForm,
+            meta: { module: 'traceability', requiresPermission: 'create' }
+          },
+          {
+            path: 'parts/:id/edit',
+            name: 'PartEdit',
+            component: PartForm,
+            props: true,
+            meta: { module: 'traceability', requiresPermission: 'create' }
+          },
+
+          // 3. BOM CONFIG
+          {
+            path: 'bom',
+            name: 'BOMList',
+            component: BOMList,
+            meta: { module: 'traceability', requiresPermission: 'read' }
+          },
+          {
+            path: 'bom/create',
+            name: 'BOMCreate',
+            component: BOMForm,
+            meta: { module: 'traceability', requiresPermission: 'create' }
+          },
+          {
+            path: 'bom/:id/edit',
+            name: 'BOMEdit',
+            component: BOMForm,
+            props: true,
+            meta: { module: 'traceability', requiresPermission: 'create' }
+          }
+        ]
       },
 
       // --- MODUL VIN RECORD ---

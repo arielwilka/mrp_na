@@ -17,7 +17,7 @@
       <div class="spinner"></div> Memuat Data...
     </div>
 
-    <div v-else>
+    <div v-else class="fade-in">
       
       <div v-if="activeTab === 'brands'" class="tab-content">
         <div class="card">
@@ -33,7 +33,7 @@
                   <td class="font-mono bold">{{ b.code }}</td>
                   <td>{{ b.name }}</td>
                   <td class="text-right">
-                    <button v-if="canDelete" @click="deleteItem('brands', b.id)" class="btn-icon danger">🗑️</button>
+                    <button v-if="canDelete" @click="deleteItem('brands', b.id!)" class="btn-icon danger">🗑️</button>
                   </td>
                 </tr>
                 <tr v-if="brands.length === 0"><td colspan="3" class="text-center text-muted">Belum ada data.</td></tr>
@@ -82,7 +82,7 @@
                   </td>
 
                   <td class="text-right">
-                    <button v-if="canDelete" @click="deleteItem('types', t.id)" class="btn-icon danger">🗑️</button>
+                    <button v-if="canDelete" @click="deleteItem('types', t.id!)" class="btn-icon danger">🗑️</button>
                   </td>
                 </tr>
                 <tr v-if="types.length === 0"><td colspan="7" class="text-center text-muted">Belum ada data.</td></tr>
@@ -151,7 +151,7 @@
     <div v-if="configModal.isOpen" class="modal-overlay" @click.self="configModal.isOpen = false">
         <div class="modal-card wide-modal">
             <div class="modal-header">
-                <h3>⚙️ Config: {{ configModal.data.name }}</h3>
+                <h3>⚙️ Config: {{ configModal.data?.name }}</h3>
                 <button @click="configModal.isOpen = false" class="btn-close">×</button>
             </div>
             <div class="modal-body grid-2-col">
@@ -164,7 +164,7 @@
                     <ul class="item-list">
                         <li v-for="v in currentVariants" :key="v.id">
                             <span>{{ v.name }}</span>
-                            <button @click="deleteSubItem('variants', v.id)" class="btn-x">×</button>
+                            <button @click="deleteSubItem('variants', v.id!)" class="btn-x">×</button>
                         </li>
                         <li v-if="currentVariants.length === 0" class="empty">Belum ada varian.</li>
                     </ul>
@@ -179,7 +179,7 @@
                     <ul class="item-list">
                         <li v-for="c in currentColors" :key="c.id">
                             <span>{{ c.name }} <small v-if="c.code">({{ c.code }})</small></span>
-                            <button @click="deleteSubItem('colors', c.id)" class="btn-x">×</button>
+                            <button @click="deleteSubItem('colors', c.id!)" class="btn-x">×</button>
                         </li>
                         <li v-if="currentColors.length === 0" class="empty">Belum ada warna.</li>
                     </ul>
@@ -196,29 +196,27 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
-import axios from 'axios';
-import { useAuthStore } from '../../../stores/auth'; // Path relatif dari src/modules/product/views/
+import { useAuthStore } from '@/stores/auth';
+import api from '../api'; // <<-- IMPORT DARI MODUL LOKAL
+import type { Brand, ProductType, ProductVariant, ProductColor } from '@/types/product';
 
-const API_URL = 'http://127.0.0.1:8000/api/product';
 const authStore = useAuthStore();
-
-// Gunakan permission string yang Anda set di backend, misal 'product' atau 'vin_master'
-// Sesuaikan dengan logic permission Anda
-const canCreate = computed(() => authStore.can('vin_master', 'create')); 
-const canDelete = computed(() => authStore.can('vin_master', 'delete'));
+const canCreate = computed(() => authStore.can('product_master', 'create')); 
+const canDelete = computed(() => authStore.can('product_master', 'delete'));
 
 const activeTab = ref('brands');
 const isLoading = ref(false);
-const brands = ref<any[]>([]);
-const types = ref<any[]>([]);
+const isSubmitting = ref(false);
+
+const brands = ref<Brand[]>([]);
+const types = ref<ProductType[]>([]);
 
 const modal = reactive({ isOpen: false, type: '', title: '' });
 const form = reactive<any>({});
-const isSubmitting = ref(false);
 
 const configModal = reactive({ isOpen: false, data: {} as any });
-const currentVariants = ref<any[]>([]);
-const currentColors = ref<any[]>([]);
+const currentVariants = ref<ProductVariant[]>([]);
+const currentColors = ref<ProductColor[]>([]);
 const newVariant = ref('');
 const newColorName = ref('');
 const newColorCode = ref('');
@@ -228,19 +226,29 @@ onMounted(() => { loadData(); });
 const loadData = async () => {
     isLoading.value = true;
     try {
+        // [MODIFIKASI] Gunakan api.getBrands() tapi logika data persis kode lama
         const [resB, resT] = await Promise.all([
-            axios.get(`${API_URL}/brands/`),
-            axios.get(`${API_URL}/types/`)
+            api.getBrands(),
+            api.getTypes()
         ]);
-        brands.value = Array.isArray(resB.data) ? resB.data : (resB.data.results || []);
-        const rawTypes = Array.isArray(resT.data) ? resT.data : (resT.data.results || []);
+
+        // Logic "Normal": Cek apakah Array atau Object Pagination
+        const rawBrands = resB.data;
+        brands.value = Array.isArray(rawBrands) ? rawBrands : (rawBrands['results'] || []);
+
+        const rawTypes = resT.data;
+        const typesList = Array.isArray(rawTypes) ? rawTypes : (rawTypes['results'] || []);
         
-        types.value = rawTypes.map((t: any) => {
+        // Mapping
+        types.value = typesList.map((t: any) => {
             const brand = brands.value.find(b => b.id === t.brand);
             return { ...t, brand_name: brand ? brand.name : '-' };
         });
-    } catch(e) { console.error(e); } 
-    finally { isLoading.value = false; }
+    } catch(e) { 
+        console.error(e); 
+    } finally { 
+        isLoading.value = false; 
+    }
 };
 
 const openModal = (type: string) => {
@@ -254,17 +262,29 @@ const openModal = (type: string) => {
 const submitForm = async () => {
     isSubmitting.value = true;
     try {
-        const endpoint = modal.type === 'brand' ? 'brands' : 'types';
-        await axios.post(`${API_URL}/${endpoint}/`, form);
+        // [MODIFIKASI] Gunakan API module
+        if (modal.type === 'brand') {
+            await api.createBrand(form);
+        } else {
+            await api.createType(form);
+        }
         modal.isOpen = false; loadData();
-    } catch(e: any) { alert("Gagal: " + (e.response?.data?.detail || "Error")); } 
-    finally { isSubmitting.value = false; }
+    } catch(e: any) { 
+        alert("Gagal: " + (e.response?.data?.detail || "Error")); 
+    } finally { 
+        isSubmitting.value = false; 
+    }
 };
 
-const deleteItem = async (ep: string, id: number) => {
+const deleteItem = async (type: 'brands' | 'types', id: number) => {
     if(!confirm("Yakin hapus?")) return;
-    try { await axios.delete(`${API_URL}/${ep}/${id}/`); loadData(); } 
-    catch(e) { alert("Gagal hapus (Data terpakai?)"); }
+    try { 
+        // [MODIFIKASI] Gunakan API module
+        if (type === 'brands') await api.deleteBrand(id);
+        else await api.deleteType(id);
+        
+        loadData(); 
+    } catch(e) { alert("Gagal hapus (Data terpakai?)"); }
 };
 
 const openConfigModal = async (typeObj: any) => {
@@ -276,19 +296,25 @@ const openConfigModal = async (typeObj: any) => {
 
 const loadSubItems = async (typeId: number) => {
     try {
+        // [MODIFIKASI] Gunakan API module
         const [resV, resC] = await Promise.all([
-            axios.get(`${API_URL}/variants/?product_type=${typeId}`),
-            axios.get(`${API_URL}/colors/?product_type=${typeId}`)
+            api.getVariants(typeId),
+            api.getColors(typeId)
         ]);
-        currentVariants.value = Array.isArray(resV.data) ? resV.data : (resV.data.results || []);
-        currentColors.value = Array.isArray(resC.data) ? resC.data : (resC.data.results || []);
+        
+        // Logic "Normal" handling pagination
+        const rawV = resV.data;
+        currentVariants.value = Array.isArray(rawV) ? rawV : (rawV['results'] || []);
+        
+        const rawC = resC.data;
+        currentColors.value = Array.isArray(rawC) ? rawC : (rawC['results'] || []);
     } catch(e) { console.error(e); }
 };
 
 const addVariant = async () => {
     if(!newVariant.value) return;
     try {
-        await axios.post(`${API_URL}/variants/`, { product_type: configModal.data.id, name: newVariant.value });
+        await api.createVariant({ product_type: configModal.data.id, name: newVariant.value });
         newVariant.value = ''; loadSubItems(configModal.data.id);
     } catch(e) { alert("Gagal simpan"); }
 };
@@ -296,18 +322,23 @@ const addVariant = async () => {
 const addColor = async () => {
     if(!newColorName.value) return;
     try {
-        await axios.post(`${API_URL}/colors/`, { product_type: configModal.data.id, name: newColorName.value, code: newColorCode.value });
+        await api.createColor({ product_type: configModal.data.id, name: newColorName.value, code: newColorCode.value });
         newColorName.value = ''; newColorCode.value = ''; loadSubItems(configModal.data.id);
     } catch(e) { alert("Gagal simpan"); }
 };
 
-const deleteSubItem = async (ep: string, id: number) => {
+const deleteSubItem = async (type: 'variants' | 'colors', id: number) => {
     if(!confirm("Hapus?")) return;
-    try { await axios.delete(`${API_URL}/${ep}/${id}/`); loadSubItems(configModal.data.id); } catch(e) {}
+    try { 
+        if (type === 'variants') await api.deleteVariant(id);
+        else await api.deleteColor(id);
+        loadSubItems(configModal.data.id); 
+    } catch(e) {}
 };
 </script>
 
 <style scoped>
+/* STYLE COPY-PASTE DARI KODE ASLI ANDA */
 .master-page { padding: 20px; max-width: 1100px; margin: 0 auto; }
 .header { margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
 .header h2 { margin: 0; color: #1e293b; }

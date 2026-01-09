@@ -1,7 +1,7 @@
 <template>
-  <div class="master-page">
-    <div class="header">
-      <div class="flex justify-between items-center">
+  <div class="page-container">
+    <div class="page-header">
+      <div class="header-content">
         <div>
           <h2>🛡️ QC Workstation</h2>
           <p>Scan barcode, input parameter fisik, dan tentukan kualitas (OK/NG).</p>
@@ -13,9 +13,11 @@
       </div>
     </div>
 
+    
     <div class="workstation-grid">
       
       <div class="left-panel">
+        
         <div class="card mb-4">
           <div class="card-header">
             <h3>1. Setup Barang</h3>
@@ -23,7 +25,12 @@
           <div class="card-body">
             <div class="form-group">
               <label>Pilih Part / Komponen</label>
-              <select v-model="selectedPartId" @change="fetchTemplates" class="input" :disabled="isLoading">
+              <select 
+                v-model="selectedPartId" 
+                @change="fetchTemplates" 
+                class="input-field"
+                :disabled="isLoading"
+              >
                 <option :value="null">-- Pilih Part --</option>
                 <option v-for="part in parts" :key="part.id" :value="part.id">
                   {{ part.part_number }} - {{ part.part_name }}
@@ -44,21 +51,21 @@
                 ref="snInput"
                 v-model="serialNumber" 
                 type="text" 
-                class="input font-mono font-bold text-lg" 
+                class="input-field font-mono font-bold text-lg" 
                 placeholder="Scan Barcode here..."
                 @keyup.enter="focusToForm"
               />
-              <small class="text-muted block mt-1">Tekan Enter untuk pindah ke form parameter.</small>
+              <small class="text-muted mt-2 block">Tekan Enter untuk pindah ke form parameter.</small>
             </div>
           </div>
         </div>
 
         <div class="info-box">
           <strong>💡 Instruksi Kerja:</strong>
-          <ul class="pl-4 mt-2 list-disc">
+          <ul class="info-list">
             <li>Pastikan Serial Number sesuai fisik.</li>
             <li>Gunakan <strong>Kamera</strong> untuk foto fisik barang.</li>
-            <li>Gunakan <strong>Screen</strong> untuk capture bukti software/dokumen di layar.</li>
+            <li>Gunakan <strong>Screen</strong> untuk capture bukti software.</li>
             <li>Tekan tombol PASS atau FAIL sesuai hasil.</li>
           </ul>
         </div>
@@ -67,95 +74,111 @@
       <div class="right-panel">
         
         <div class="card h-full" v-if="selectedPartId && templates.length > 0">
-          <div class="card-header flex justify-between items-center">
+          <div class="card-header flex-between">
             <h3>📋 Parameter Pemeriksaan</h3>
             <span class="badge badge-blue">{{ selectedPartName }}</span>
           </div>
           
           <div class="card-body">
             <div class="form-container">
-              <div v-for="tpl in templates" :key="tpl.id" class="form-group border-b pb-4 mb-4">
-                <label>
+              <div v-for="tpl in templates" :key="tpl.id" class="form-item">
+                <label class="field-label">
                   {{ tpl.field_label }} 
-                  <span v-if="tpl.is_mandatory" class="text-red-500">*</span>
+                  <span v-if="tpl.is_mandatory" class="text-red">*</span>
                 </label>
 
                 <div v-if="tpl.field_type === 'NUMBER'">
-                  <div class="flex items-center gap-2">
+                  <div class="input-wrapper">
                     <input 
                       v-model.number="formValues[tpl.field_key]" 
-                      type="number" step="0.01" class="input"
-                      :class="{'border-red': isOutOfRange(tpl)}"
+                      type="number" 
+                      step="0.01"
+                      class="input-field"
+                      :class="{'input-error': isOutOfRange(tpl)}"
                     />
-                    <span class="text-muted text-sm">(Std: {{ tpl.min_val }} - {{ tpl.max_val }})</span>
+                    <span class="suffix-text">
+                      (Std: {{ tpl.min_val }} - {{ tpl.max_val }})
+                    </span>
                   </div>
-                  <small v-if="isOutOfRange(tpl)" class="text-red-500 font-bold text-xs mt-1 block">⚠️ Nilai di luar standar!</small>
+                  <small v-if="isOutOfRange(tpl)" class="error-text">
+                    ⚠️ Nilai di luar standar!
+                  </small>
                 </div>
 
                 <div v-else-if="tpl.field_type === 'TEXT'">
-                  <input v-model="formValues[tpl.field_key]" type="text" class="input" />
+                  <input v-model="formValues[tpl.field_key]" type="text" class="input-field" />
                 </div>
 
                 <div v-else-if="tpl.field_type === 'BOOLEAN'">
-                  <div class="flex gap-4 mt-2">
+                  <div class="radio-group">
                     <label class="radio-label pass">
-                      <input type="radio" :name="tpl.field_key" :value="true" v-model="formValues[tpl.field_key]"> <span>OK</span>
+                      <input type="radio" :name="tpl.field_key" :value="true" v-model="formValues[tpl.field_key]"> 
+                      <span>OK</span>
                     </label>
                     <label class="radio-label fail">
-                      <input type="radio" :name="tpl.field_key" :value="false" v-model="formValues[tpl.field_key]"> <span>NG</span>
+                      <input type="radio" :name="tpl.field_key" :value="false" v-model="formValues[tpl.field_key]"> 
+                      <span>NG</span>
                     </label>
                   </div>
                 </div>
 
                 <div v-else-if="tpl.field_type === 'IMAGE'">
                   
-                  <div v-if="!formValues[tpl.field_key]" class="flex flex-wrap gap-2 mt-2">
-                    
-                    <button @click="openCamera(tpl.field_key)" class="btn-tool btn-camera" title="Ambil Foto Fisik">
+                  <div v-if="!formValues[tpl.field_key]" class="media-actions">
+                    <button @click="openCamera(tpl.field_key)" class="btn-tool btn-camera">
                       📷 Kamera
                     </button>
 
-                    <button @click="captureScreen(tpl.field_key)" class="btn-tool btn-screen" title="Capture Layar Komputer">
+                    <button @click="captureScreen(tpl.field_key)" class="btn-tool btn-screen">
                       🖥️ Screen
                     </button>
 
-                    <label class="btn-tool btn-upload" title="Upload File Gambar">
+                    <label class="btn-tool btn-upload">
                       📂 Upload
                       <input type="file" accept="image/*" class="hidden" @change="handleFileUpload($event, tpl.field_key)" />
                     </label>
-
                   </div>
 
-                  <div v-else class="mt-2 relative inline-block group">
+                  <div v-else class="image-preview-container">
                     <img 
                       :src="formValues[tpl.field_key]" 
-                      class="h-40 w-auto rounded-lg border shadow-sm object-cover bg-gray-100" 
+                      class="image-preview" 
+                      alt="Bukti QC" 
                     />
-                    <button 
-                      @click="removePhoto(tpl.field_key)" 
-                      class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center shadow hover:bg-red-600 font-bold"
-                    >
+                    <button @click="removePhoto(tpl.field_key)" class="btn-remove-photo" title="Hapus Foto">
                       &times;
                     </button>
-                    <span class="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-2 rounded">
-                      Captured
-                    </span>
+                    <span class="image-tag">Captured</span>
                   </div>
                 </div>
 
               </div>
             </div>
 
-            <div class="action-area mt-6 pt-4 border-t">
-              <button @click="submit('FAIL')" class="btn-big btn-fail" :disabled="isSubmitting">🚫 REJECT</button>
-              <button @click="submit('PASS')" class="btn-big btn-pass" :disabled="isSubmitting">✅ ACCEPT</button>
+            <div class="action-area">
+              <button 
+                @click="submit('FAIL')" 
+                class="btn-big btn-fail"
+                :disabled="isSubmitting"
+              >
+                🚫 REJECT
+              </button>
+              
+              <button 
+                @click="submit('PASS')" 
+                class="btn-big btn-pass"
+                :disabled="isSubmitting"
+              >
+                ✅ ACCEPT
+              </button>
             </div>
           </div>
         </div>
 
-        <div v-else class="card h-full flex items-center justify-center p-8 bg-gray-50 text-center border-dashed">
-          <div class="text-muted">
-            <p v-if="!selectedPartId" class="text-lg">👈 Silakan pilih part di sebelah kiri.</p>
+        <div v-else class="card h-full empty-state-card">
+          <div class="text-muted text-center">
+            <div class="empty-icon">👈</div>
+            <p v-if="!selectedPartId" class="text-lg">Silakan pilih part di panel kiri.</p>
             <p v-else class="text-lg">Tidak ada template parameter untuk part ini.</p>
           </div>
         </div>
@@ -185,10 +208,12 @@ const serialNumber = ref('');
 const formValues = reactive<Record<string, any>>({});
 const snInput = ref<HTMLInputElement | null>(null);
 
+// UI State
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const submitStatus = ref<string | null>(null);
 
+// Camera State
 const isCameraOpen = ref(false);
 const activePhotoKey = ref<string | null>(null);
 
@@ -204,6 +229,7 @@ const statusColor = computed(() => {
   return '';
 });
 
+// --- LIFECYCLE ---
 onMounted(async () => {
   try {
     const res = await api.getParts();
@@ -212,23 +238,36 @@ onMounted(async () => {
   } catch (e) { console.error(e); }
 });
 
-// --- METHODS: LOAD ---
+// --- METHODS: LOAD DATA ---
 const fetchTemplates = async () => {
   if (!selectedPartId.value) {
     templates.value = [];
     return;
   }
+  
   isLoading.value = true;
   formValues.value = {}; 
+  
   try {
     const res = await api.getTemplatesByPart(selectedPartId.value);
     const rawData: any = res.data;
     templates.value = Array.isArray(rawData) ? rawData : (rawData.results || []);
-    templates.value.forEach((t: any) => formValues[t.field_key] = null);
+    
+    // Init Model Kosong
+    templates.value.forEach((t: any) => {
+      formValues[t.field_key] = null;
+    });
+
     nextTick(() => snInput.value?.focus());
-  } catch (e) { console.error(e); } finally { isLoading.value = false; }
+
+  } catch (e) {
+    console.error("Gagal load template", e);
+  } finally {
+    isLoading.value = false;
+  }
 };
 
+// --- METHODS: VALIDATION ---
 const isOutOfRange = (tpl: any) => {
   const val = formValues[tpl.field_key];
   if (val === null || val === '') return false;
@@ -237,39 +276,34 @@ const isOutOfRange = (tpl: any) => {
   return false;
 };
 
-// --- METHODS: MEDIA HANDLING ---
-
-// 1. KAMERA (WEBCAM)
+// --- METHODS: MEDIA (Camera, Screen, Upload) ---
 const openCamera = (key: string) => {
   activePhotoKey.value = key;
   isCameraOpen.value = true;
 };
+
 const closeCamera = () => {
   isCameraOpen.value = false;
   activePhotoKey.value = null;
 };
+
 const handleCapture = (base64Image: string) => {
-  if (activePhotoKey.value) formValues[activePhotoKey.value] = base64Image;
+  if (activePhotoKey.value) {
+    formValues[activePhotoKey.value] = base64Image;
+  }
   closeCamera();
 };
 
-// 2. SCREEN CAPTURE (WINDOWS/TAB)
 const captureScreen = async (key: string) => {
   try {
-    // Minta izin share screen ke browser
-    // cursor: 'always' agar cursor terlihat di screenshot
     const stream = await navigator.mediaDevices.getDisplayMedia({
       video: { cursor: 'always' } as any, 
       audio: false
     });
-
-    // Buat elemen video virtual untuk memutar stream sejenak
     const video = document.createElement('video');
     video.srcObject = stream;
-    // Play video agar frame tersedia
     await video.play(); 
 
-    // Capture Frame ke Canvas
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -277,42 +311,42 @@ const captureScreen = async (key: string) => {
     
     if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Convert ke Base64 String (JPEG Quality 0.8)
         const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-        
-        // Simpan ke Form
         formValues[key] = base64Image;
-        
-        // Matikan sharing screen segera setelah capture
         stream.getTracks().forEach(track => track.stop());
     }
   } catch (err) {
-    // User membatalkan dialog share screen
-    console.log("Screen capture cancelled or failed", err);
+    console.log("Screen capture cancelled");
   }
 };
 
-// 3. UPLOAD FILE
 const handleFileUpload = (event: any, key: string) => {
   const file = event.target.files[0];
   if (file) {
     const reader = new FileReader();
-    reader.onload = (e) => { formValues[key] = e.target?.result; };
+    reader.onload = (e) => {
+      formValues[key] = e.target?.result; 
+    };
     reader.readAsDataURL(file);
   }
 };
 
-const removePhoto = (key: string) => { formValues[key] = null; };
+const removePhoto = (key: string) => {
+  formValues[key] = null;
+};
 
-// --- SUBMIT ---
-const focusToForm = () => { /* Opsional */ };
+// --- METHODS: SUBMIT ---
+const focusToForm = () => { /* Logic focus jika diperlukan */ };
 
 const submit = async (decision: 'PASS' | 'FAIL') => {
-  if (!serialNumber.value) { alert("Serial Number wajib diisi!"); snInput.value?.focus(); return; }
+  if (!serialNumber.value) {
+    alert("Serial Number wajib diisi!");
+    snInput.value?.focus();
+    return;
+  }
 
   for (const tpl of templates.value) {
-    if (tpl.is_mandatory && !formValues[tpl.field_key]) {
+    if (tpl.is_mandatory && (formValues[tpl.field_key] === null || formValues[tpl.field_key] === '')) {
       alert(`Field "${tpl.field_label}" wajib diisi!`);
       return;
     }
@@ -333,9 +367,10 @@ const submit = async (decision: 'PASS' | 'FAIL') => {
     submitStatus.value = `HASIL DISIMPAN: ${decision}`;
     serialNumber.value = '';
     Object.keys(formValues).forEach(k => formValues[k] = null);
-    nextTick(() => snInput.value?.focus());
+    nextTick(() => snInput.value?.focus()); 
     setTimeout(() => submitStatus.value = null, 3000);
   } catch (err: any) {
+    console.error(err);
     const msg = err.response?.data?.error || "Gagal menyimpan data.";
     alert(`ERROR: ${msg}`);
   } finally {
@@ -345,63 +380,112 @@ const submit = async (decision: 'PASS' | 'FAIL') => {
 </script>
 
 <style scoped>
-.master-page { padding: 24px; max-width: 1200px; margin: 0 auto; color: #334155; }
-.header { margin-bottom: 24px; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; }
-.header h2 { margin: 0; color: #1e293b; font-size: 1.5rem; }
-.header p { margin: 4px 0 0; color: #64748b; font-size: 0.9rem; }
+/* ========================================= */
+/* LAYOUT GLOBAL (Mengikuti style.css)       */
+/* ========================================= */
+.page-container { padding: 24px; max-width: 1400px; margin: 0 auto; color: var(--text-primary); }
 
-/* LAYOUT */
-.workstation-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; }
-@media (max-width: 768px) { .workstation-grid { grid-template-columns: 1fr; } }
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
-.card-header { padding: 12px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-.card-header h3 { margin: 0; font-size: 1rem; color: #475569; font-weight: 600; text-transform: uppercase; }
+.page-header { margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; }
+.header-content { display: flex; justify-content: space-between; align-items: center; }
+.page-header h2 { margin: 0; color: var(--text-primary); font-size: 1.5rem; }
+.page-header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 0.9rem; }
+
+/* GRID SYSTEM */
+.workstation-grid { display: grid; grid-template-columns: 350px 1fr; gap: 24px; }
+@media (max-width: 900px) { .workstation-grid { grid-template-columns: 1fr; } }
+
+/* CARD STYLES */
+.card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-sm); overflow: hidden; }
+.card-header { padding: 16px 20px; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color); }
+.card-header h3 { margin: 0; font-size: 1rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .card-body { padding: 24px; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.mb-4 { margin-bottom: 16px; }
+.h-full { height: 100%; }
 
-/* INPUTS */
-.input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.95rem; }
-.input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-.input.border-red { border-color: #ef4444; background-color: #fef2f2; }
+/* FORM ELEMENTS */
 .form-group { margin-bottom: 16px; }
-.form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem; color: #334155; }
+.form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem; color: var(--text-primary); }
 
-/* BUTTONS TOOLBAR (Camera, Screen, Upload) */
-.btn-tool {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 12px; border-radius: 6px; font-weight: 500; font-size: 0.85rem;
-  border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+.input-field { 
+  width: 100%; padding: 10px 12px; 
+  border: 1px solid var(--border-color); 
+  border-radius: 6px; 
+  background: var(--bg-body); 
+  color: var(--text-primary);
+  font-size: 0.95rem; 
+  transition: all 0.2s; 
 }
-.btn-camera { background-color: #3b82f6; color: white; }
-.btn-camera:hover { background-color: #2563eb; }
+.input-field:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+.input-field:disabled { background: rgba(0,0,0,0.05); color: var(--text-secondary); cursor: not-allowed; }
+.input-error { border-color: #ef4444; background-color: #fef2f2; }
 
-/* Tombol Screen Warna Ungu */
-.btn-screen { background-color: #9333ea; color: white; } 
-.btn-screen:hover { background-color: #7e22ce; }
+/* UTILS */
+.text-muted { color: var(--text-secondary); font-size: 0.85rem; }
+.text-red { color: #ef4444; }
+.mt-2 { margin-top: 8px; }
+.font-mono { font-family: monospace; }
+.font-bold { font-weight: 700; }
+.text-lg { font-size: 1.125rem; }
 
-.btn-upload { background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-.btn-upload:hover { background-color: #e2e8f0; }
+/* FORM ITEMS LAYOUT */
+.form-item { border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 20px; }
+.form-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.field-label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary); font-size: 0.95rem; }
 
-.hidden { display: none; }
-.text-red-500 { color: #ef4444; }
-.text-muted { color: #94a3b8; font-size: 0.85rem; }
+.input-wrapper { display: flex; align-items: center; gap: 12px; }
+.suffix-text { color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap; }
+.error-text { color: #ef4444; font-weight: bold; font-size: 0.75rem; margin-top: 4px; display: block; }
 
-/* BADGES & RADIO */
-.badge-blue { background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
-.radio-label { display: flex; align-items: center; padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer; background: white; flex: 1; justify-content: center; font-weight: 600; }
-.radio-label:hover { background: #f8fafc; }
-.radio-label.pass:has(input:checked) { border-color: #16a34a; background: #dcfce7; color: #166534; }
-.radio-label.fail:has(input:checked) { border-color: #dc2626; background: #fee2e2; color: #991b1b; }
-.radio-label input { margin-right: 8px; }
+/* BADGES */
+.badge { padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+.badge-blue { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
 
-/* EXECUTION BUTTONS */
-.action-area { display: flex; gap: 16px; }
-.btn-big { flex: 1; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 1rem; border: none; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-.btn-pass { background: linear-gradient(to bottom right, #16a34a, #15803d); }
-.btn-fail { background: linear-gradient(to bottom right, #dc2626, #b91c1c); }
-.status-badge { padding: 8px 16px; border-radius: 6px; font-weight: 700; color: white; font-size: 0.9rem; }
+.status-badge { padding: 8px 16px; border-radius: 6px; font-weight: 700; color: white; font-size: 0.9rem; box-shadow: var(--shadow-md); }
 .status-pass { background-color: #16a34a; }
 .status-fail { background-color: #dc2626; }
-.info-box { background: #eff6ff; border: 1px solid #dbeafe; padding: 16px; border-radius: 8px; color: #1e40af; font-size: 0.9rem; margin-top: 16px; }
-.list-disc { margin-left: 20px; }
-.border-dashed { border-style: dashed !important; border-width: 2px; }
+
+/* INFO BOX */
+.info-box { background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); padding: 16px; border-radius: 8px; color: var(--primary-color); font-size: 0.9rem; }
+.info-list { padding-left: 20px; margin-top: 8px; list-style-type: disc; }
+
+/* RADIO BUTTONS (OK/NG) */
+.radio-group { display: flex; gap: 16px; }
+.radio-label { flex: 1; display: flex; align-items: center; justify-content: center; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; transition: all 0.2s; background: var(--bg-body); font-weight: 600; color: var(--text-secondary); }
+.radio-label input { margin-right: 8px; }
+.radio-label:hover { border-color: var(--text-secondary); }
+
+/* Active States for Radio */
+.radio-label.pass:has(input:checked) { background: #dcfce7; color: #166534; border-color: #16a34a; }
+.radio-label.fail:has(input:checked) { background: #fee2e2; color: #991b1b; border-color: #dc2626; }
+
+/* MEDIA BUTTONS */
+.media-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn-tool { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; font-weight: 500; font-size: 0.85rem; border: none; cursor: pointer; transition: all 0.2s; color: white; }
+.btn-tool:hover { transform: translateY(-1px); opacity: 0.9; }
+
+.btn-camera { background-color: var(--primary-color); }
+.btn-screen { background-color: #9333ea; }
+.btn-upload { background-color: var(--bg-body); color: var(--text-primary); border: 1px solid var(--border-color); }
+.btn-upload:hover { background-color: rgba(0,0,0,0.05); }
+.hidden { display: none; }
+
+/* IMAGE PREVIEW */
+.image-preview-container { position: relative; display: inline-block; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+.image-preview { height: 160px; width: auto; display: block; background: #000; }
+.btn-remove-photo { position: absolute; top: 4px; right: 4px; background: rgba(239, 68, 68, 0.9); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; }
+.image-tag { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; }
+
+/* ACTION AREA (PASS/FAIL) */
+.action-area { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border-color); display: flex; gap: 16px; }
+.btn-big { flex: 1; padding: 16px; border-radius: 8px; font-weight: 800; font-size: 1.1rem; border: none; cursor: pointer; color: white; transition: transform 0.1s; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-md); }
+.btn-big:active { transform: scale(0.98); }
+.btn-big:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-pass { background: linear-gradient(135deg, #16a34a, #15803d); }
+.btn-fail { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+
+/* EMPTY STATE */
+.empty-state-card { display: flex; align-items: center; justify-content: center; border-style: dashed; border-width: 2px; background: transparent; }
+.empty-icon { font-size: 3rem; margin-bottom: 10px; }
 </style>

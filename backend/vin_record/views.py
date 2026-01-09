@@ -5,37 +5,36 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.throttling import UserRateThrottle, ScopedRateThrottle
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import transaction, IntegrityError
+
 from .pagination import StandardPagination
 from .models import VinRecord, VinPrefix, YearCode
 from product.models import ProductType, ProductVariant, ProductColor
 from product.serializers import ProductTypeSerializer
-# Pastikan Anda mengimport semua Serializer di sini
 from .serializers import VinRecordSerializer, VinPrefixSerializer, YearCodeSerializer
-
-# Import utils hitung check digit
 from .utils import calculate_vin_check_digit
 
 # ==========================================
-# 1. VIEWSET TAHUN (YearCode)
+# 1. VIEWSET TAHUN
 # ==========================================
 class YearCodeViewSet(viewsets.ModelViewSet):
     queryset = YearCode.objects.all().order_by('-year')
     serializer_class = YearCodeSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = None
+
 # ==========================================
-# 2. VIEWSET PREFIX (VinPrefix)
+# 2. VIEWSET PREFIX
 # ==========================================
 class VinPrefixViewSet(viewsets.ModelViewSet):
     queryset = VinPrefix.objects.select_related('product_type', 'year_code').all()
     serializer_class = VinPrefixSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['product_type', 'year_code']
     pagination_class = StandardPagination
+
 # ==========================================
-# 3. VIEWSET VIN RECORD (Main Logic)
+# 3. VIEWSET VIN RECORD
 # ==========================================
 class VinRecordViewSet(viewsets.ModelViewSet):
     queryset = VinRecord.objects.select_related(
@@ -45,8 +44,10 @@ class VinRecordViewSet(viewsets.ModelViewSet):
     serializer_class = VinRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = StandardPagination
+    
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['product_type', 'production_year']
+    # Filter 'status' ditambahkan agar bisa cek mana yg AVAILABLE / RESERVED
+    filterset_fields = ['product_type', 'production_year', 'status'] 
     search_fields = ['full_vin', 'serial_number']
 
     def get_throttles(self):
@@ -62,14 +63,14 @@ class VinRecordViewSet(viewsets.ModelViewSet):
         # 1. Manual Duplicate Check
         input_vin = request.data.get('full_vin')
         if input_vin and VinRecord.objects.filter(full_vin=input_vin).exists():
-            raise ValidationError({"full_vin": ["GAGAL: Nomor Rangka (VIN) ini sudah terdaftar di sistem."]})
+            raise ValidationError({"full_vin": ["GAGAL: Nomor Rangka (VIN) ini sudah terdaftar."]})
 
         # 2. Save with Race Condition Protection
         try:
             return super().create(request, *args, **kwargs)
         except IntegrityError as e:
             if 'unique constraint' in str(e).lower() or 'full_vin' in str(e).lower():
-                raise ValidationError({"full_vin": ["KONFLIK DATA: VIN baru saja didaftarkan oleh user lain."]})
+                raise ValidationError({"full_vin": ["KONFLIK DATA: VIN baru saja didaftarkan user lain."]})
             raise e
 
     @action(detail=False, methods=['post'], url_path='batch-generate')
@@ -87,12 +88,12 @@ class VinRecordViewSet(viewsets.ModelViewSet):
                 try:
                     product_type = ProductType.objects.select_for_update().get(pk=data['product_type'])
                 except ProductType.DoesNotExist:
-                      return Response({'detail': 'Tipe Kendaraan tidak ditemukan'}, status=404)
+                       return Response({'detail': 'Tipe Kendaraan tidak ditemukan'}, status=404)
                 
-                # Cek Trace (Sesuai model Anda: is_vin_trace)
-                if not product_type.is_vin_trace:
+                # UPDATE LOGIC: Cek Tracking Mode
+                if product_type.tracking_mode != 'VIN':
                     return Response({
-                        'detail': f"GAGAL: Tipe '{product_type.name}' dikonfigurasi sebagai Non-VIN Trace."
+                        'detail': f"GAGAL: Tipe '{product_type.name}' mode trackingnya bukan VIN."
                     }, status=400)
 
                 production_year = YearCode.objects.get(pk=data['production_year'])
@@ -109,12 +110,11 @@ class VinRecordViewSet(viewsets.ModelViewSet):
                 except VinPrefix.DoesNotExist:
                     return Response({'detail': 'Prefix belum disetting untuk tipe & tahun ini.'}, status=400)
 
-                # Persiapan Variabel Generator
+                # Persiapan Variable
                 wmi_vds = prefix_rule.wmi_vds
                 plant_code = prefix_rule.plant_code
                 year_char = production_year.code
                 
-                # Cek Config Check Digit (Sesuai model Anda: has_check_digit)
                 use_algo = product_type.has_check_digit
                 static_ninth = prefix_rule.static_ninth_digit or '0'
 
@@ -127,7 +127,6 @@ class VinRecordViewSet(viewsets.ModelViewSet):
                     serial_str = str(current_num).zfill(6)
                     check_list.append(serial_str)
                     
-                    # LOGIKA HITUNG DIGIT 9 (Sama persis dengan models.save)
                     final_ninth = static_ninth
                     
                     if use_algo:
@@ -138,10 +137,12 @@ class VinRecordViewSet(viewsets.ModelViewSet):
                             
                     full_vin = f"{wmi_vds}{final_ninth}{year_char}{plant_code}{serial_str}"
 
+                    # Status default AVAILABLE
                     vin_objects.append(VinRecord(
                         product_type=product_type, production_year=production_year,
                         variant=variant, color=color, serial_number=serial_str,
-                        full_vin=full_vin, created_by=request.user
+                        full_vin=full_vin, created_by=request.user,
+                        status='AVAILABLE'
                     ))
 
                 # Pre-flight Check Duplikat
@@ -167,13 +168,14 @@ class VinRecordViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'KONFLIK DATA: Terjadi tabrakan saat proses.'}, status=409)
         except Exception as e:
             return Response({'detail': str(e)}, status=500)
+
 class TraceableProductTypeViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    Endpoint khusus untuk dropdown di modul VIN.
-    HANYA menampilkan produk yang wajib ditrace (is_vin_trace=True).
-    Pagination dimatikan agar dropdown frontend menerima semua data sekaligus.
+    Dropdown khusus VIN Module.
+    Hanya menampilkan product_type yang tracking_mode = 'VIN'.
     """
-    queryset = ProductType.objects.filter(is_vin_trace=True).order_by('name')
+    # UPDATE LOGIC: Filter by tracking_mode
+    queryset = ProductType.objects.filter(tracking_mode='VIN').order_by('name')
     serializer_class = ProductTypeSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = None

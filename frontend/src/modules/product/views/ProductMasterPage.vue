@@ -23,17 +23,23 @@
         <div class="card">
           <div class="card-header">
             <h3>Daftar Brand / Merk</h3>
-            <button v-if="canCreate" @click="openModal('brand')" class="btn-sm">+ Brand Baru</button>
+            <button v-if="canCreate" @click="openModal('brand')" class="btn-primary btn-sm">+ Brand Baru</button>
           </div>
           <div class="table-responsive">
             <table class="table">
-              <thead><tr><th>Kode</th><th>Nama Brand</th><th class="text-right">Aksi</th></tr></thead>
+              <thead>
+                <tr>
+                  <th class="col-tight">Kode</th>
+                  <th class="col-auto">Nama Brand</th>
+                  <th class="col-tight text-right">Aksi</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr v-for="b in brands" :key="b.id">
                   <td class="font-mono bold">{{ b.code }}</td>
                   <td>{{ b.name }}</td>
                   <td class="text-right">
-                    <button v-if="canDelete" @click="deleteItem('brands', b.id!)" class="btn-icon danger">🗑️</button>
+                    <button v-if="canDelete" @click="deleteItem('brands', b.id!)" class="btn-icon danger" title="Hapus">🗑️</button>
                   </td>
                 </tr>
                 <tr v-if="brands.length === 0"><td colspan="3" class="text-center text-muted">Belum ada data.</td></tr>
@@ -47,19 +53,15 @@
         <div class="card">
           <div class="card-header">
             <h3>Daftar Tipe Kendaraan</h3>
-            <button v-if="canCreate" @click="openModal('type')" class="btn-sm">+ Tipe Baru</button>
+            <button v-if="canCreate" @click="openModal('type')" class="btn-primary btn-sm">+ Tipe Baru</button>
           </div>
           <div class="table-responsive">
             <table class="table">
               <thead>
                 <tr>
-                  <th>Brand</th>
-                  <th>Model / Tipe</th>
-                  <th>Kode Internal</th>
-                  <th class="text-center">VIN Trace</th>
-                  <th class="text-center">Check Digit</th>
-                  <th class="text-right">Config</th>
-                  <th class="text-right">Aksi</th>
+                  <th class="col-tight">Brand</th>          <th class="col-auto">Model / Tipe</th>    <th class="col-tight">Kode Internal</th>  <th class="text-center col-tight">Tracking Mode</th>
+                  <th class="text-center col-tight">Check Digit</th>
+                  <th class="col-action">Config</th>        <th class="col-tight text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -69,16 +71,18 @@
                   <td class="font-mono">{{ t.code }}</td>
                   
                   <td class="text-center">
-                    <span v-if="t.is_vin_trace" class="badge-success">✅ Wajib</span>
-                    <span v-else class="badge-gray">Non-Trace</span>
+                    <span :class="['badge-mode', t.tracking_mode]">
+                        {{ t.tracking_mode_display || t.tracking_mode }}
+                    </span>
                   </td>
+
                   <td class="text-center">
-                    <span v-if="t.has_check_digit" class="badge-info">🧮 Auto (Algo)</span>
-                    <span v-else class="badge-warning">Static (0)</span>
+                    <span v-if="t.has_check_digit" class="badge-info">🧮 Auto</span>
+                    <span v-else class="badge-warning">Manual</span>
                   </td>
 
                   <td class="text-right">
-                    <button @click="openConfigModal(t)" class="btn-config">⚙️ Varian & Warna</button>
+                    <button @click="openConfigModal(t)" class="btn-config">⚙️ Detail</button>
                   </td>
 
                   <td class="text-right">
@@ -94,102 +98,176 @@
 
     </div>
 
-    <div v-if="modal.isOpen" class="modal-overlay" @click.self="modal.isOpen = false">
-      <div class="modal-card">
-        <div class="modal-header">
-            <h3>{{ modal.title }}</h3>
-            <button @click="modal.isOpen = false" class="btn-close">×</button>
-        </div>
-        <div class="modal-body">
-            <div v-if="modal.type === 'brand'">
-                <div class="form-group">
-                    <label>Nama Brand</label>
-                    <input v-model="form.name" placeholder="Contoh: TOYOTA" />
-                </div>
-                <div class="form-group">
-                    <label>Kode Brand (Singkatan)</label>
-                    <input v-model="form.code" placeholder="TYT" class="uppercase" maxlength="10"/>
-                </div>
-            </div>
+    <Transition name="modal-fade">
+      <div v-if="modal.isOpen" class="modal-backdrop" @click.self="modal.isOpen = false">
+        <div class="modal-dialog">
+          
+          <div class="modal-header">
+              <h3>{{ modal.title }}</h3>
+              <button @click="modal.isOpen = false" class="btn-close">
+                <span class="close-icon">&times;</span>
+              </button>
+          </div>
+          
+          <div class="modal-body">
+              <div v-if="modal.type === 'brand'">
+                  <div class="form-group">
+                      <label>Nama Brand <span class="required">*</span></label>
+                      <input v-model="form.name" placeholder="Contoh: TOYOTA" class="form-input" />
+                  </div>
+                  <div class="form-group">
+                      <label>Kode Brand <span class="required">*</span></label>
+                      <input v-model="form.code" placeholder="TYT" class="form-input uppercase" maxlength="10"/>
+                      <small class="helper-text">Singkatan unik, maksimal 10 karakter.</small>
+                  </div>
+              </div>
 
-            <div v-if="modal.type === 'type'">
-                <div class="form-group">
-                    <label>Brand</label>
-                    <select v-model="form.brand">
-                        <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Nama Model</label>
-                    <input v-model="form.name" placeholder="Contoh: Fortuner" />
-                </div>
-                <div class="form-group">
-                    <label>Kode Internal</label>
-                    <input v-model="form.code" placeholder="FRT-2024" class="uppercase" />
-                </div>
-                <div class="checkbox-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" v-model="form.is_vin_trace">
-                        <div><strong>Wajib VIN Trace</strong><small>Produk ini masuk sistem VIN.</small></div>
-                    </label>
-                </div>
-                <div class="checkbox-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" v-model="form.has_check_digit">
-                        <div><strong>Gunakan Check Digit (Algoritma)</strong><small>Hitung otomatis digit ke-9.</small></div>
-                    </label>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-           <button @click="modal.isOpen = false" class="btn-secondary">Batal</button>
-           <button @click="submitForm" class="btn-primary" :disabled="isSubmitting">Simpan</button>
+              <div v-if="modal.type === 'type'">
+                  <div class="form-group">
+                      <label>Brand <span class="required">*</span></label>
+                      <div class="select-wrapper">
+                        <select v-model="form.brand" class="form-select">
+                            <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
+                        </select>
+                      </div>
+                  </div>
+                  
+                  <div class="row-2-col">
+                    <div class="form-group">
+                        <label>Nama Model <span class="required">*</span></label>
+                        <input v-model="form.name" placeholder="Contoh: Fortuner" class="form-input" />
+                    </div>
+                    <div class="form-group">
+                        <label>Kode Internal <span class="required">*</span></label>
+                        <input v-model="form.code" placeholder="FRT-2024" class="form-input uppercase" />
+                    </div>
+                  </div>
+                  
+                  <div class="form-group">
+                      <label>Strategi Produksi (Tracking) <span class="required">*</span></label>
+                      <div class="tracking-options">
+                          <label :class="['radio-card', { active: form.tracking_mode === 'VIN' }]">
+                              <input type="radio" v-model="form.tracking_mode" value="VIN">
+                              <div class="radio-content">
+                                  <span class="radio-title">Strict VIN</span>
+                                  <span class="radio-desc">Untuk Kendaraan (Rangka/Mesin)</span>
+                              </div>
+                          </label>
+                          <label :class="['radio-card', { active: form.tracking_mode === 'INTERNAL_ID' }]">
+                              <input type="radio" v-model="form.tracking_mode" value="INTERNAL_ID">
+                              <div class="radio-content">
+                                  <span class="radio-title">Internal ID</span>
+                                  <span class="radio-desc">Untuk Karoseri / Custom</span>
+                              </div>
+                          </label>
+                          <label :class="['radio-card', { active: form.tracking_mode === 'BATCH' }]">
+                              <input type="radio" v-model="form.tracking_mode" value="BATCH">
+                              <div class="radio-content">
+                                  <span class="radio-title">Batch Qty</span>
+                                  <span class="radio-desc">Untuk Sparepart Massal</span>
+                              </div>
+                          </label>
+                      </div>
+                  </div>
+
+                  <div class="toggle-group" v-if="form.tracking_mode === 'VIN'">
+                      <label class="toggle-switch">
+                          <input type="checkbox" v-model="form.has_check_digit">
+                          <span class="slider round"></span>
+                      </label>
+                      <div class="toggle-label">
+                          <strong>Gunakan Check Digit (Algoritma)</strong>
+                          <small>Sistem akan menghitung digit ke-9 secara otomatis.</small>
+                      </div>
+                  </div>
+              </div>
+          </div>
+          
+          <div class="modal-footer">
+             <button @click="modal.isOpen = false" class="btn-ghost">Batal</button>
+             <button @click="submitForm" class="btn-primary" :disabled="isSubmitting">
+                {{ isSubmitting ? 'Menyimpan...' : 'Simpan Data' }}
+             </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
-    <div v-if="configModal.isOpen" class="modal-overlay" @click.self="configModal.isOpen = false">
-        <div class="modal-card wide-modal">
-            <div class="modal-header">
-                <h3>⚙️ Config: {{ configModal.data?.name }}</h3>
-                <button @click="configModal.isOpen = false" class="btn-close">×</button>
-            </div>
-            <div class="modal-body grid-2-col">
-                <div class="sub-panel">
-                    <h4>🏷️ Daftar Varian</h4>
-                    <div class="add-row">
-                        <input v-model="newVariant" placeholder="Nama Varian (ex: G M/T)" @keyup.enter="addVariant" />
-                        <button @click="addVariant" class="btn-add">+</button>
-                    </div>
-                    <ul class="item-list">
-                        <li v-for="v in currentVariants" :key="v.id">
-                            <span>{{ v.name }}</span>
-                            <button @click="deleteSubItem('variants', v.id!)" class="btn-x">×</button>
-                        </li>
-                        <li v-if="currentVariants.length === 0" class="empty">Belum ada varian.</li>
-                    </ul>
+    <Transition name="modal-fade">
+      <div v-if="configModal.isOpen" class="modal-backdrop" @click.self="configModal.isOpen = false">
+          <div class="modal-dialog wide-dialog">
+              <div class="modal-header">
+                  <div>
+                    <h3>Konfigurasi Produk</h3>
+                    <p class="subtitle">{{ configModal.data?.brand_name }} - {{ configModal.data?.name }}</p>
+                  </div>
+                  <button @click="configModal.isOpen = false" class="btn-close"><span class="close-icon">&times;</span></button>
+              </div>
+              
+              <div class="modal-body">
+                <div class="config-grid">
+                  
+                  <div class="config-panel">
+                      <div class="panel-header">
+                        <h4>🏷️ Daftar Varian</h4>
+                        <span class="badge-count">{{ currentVariants.length }}</span>
+                      </div>
+                      
+                      <div class="input-group-row">
+                          <input v-model="newVariant" placeholder="Nama Varian (ex: G M/T)" @keyup.enter="addVariant" class="form-input" />
+                          <button @click="addVariant" class="btn-add" title="Tambah Varian">
+                            <span>+</span>
+                          </button>
+                      </div>
+
+                      <ul class="styled-list">
+                          <li v-for="v in currentVariants" :key="v.id">
+                              <span class="item-text">{{ v.name }}</span>
+                              <button @click="deleteSubItem('variants', v.id!)" class="btn-remove">&times;</button>
+                          </li>
+                          <li v-if="currentVariants.length === 0" class="empty-state">
+                            Belum ada varian terdaftar.
+                          </li>
+                      </ul>
+                  </div>
+
+                  <div class="config-panel">
+                      <div class="panel-header">
+                        <h4>🎨 Daftar Warna</h4>
+                        <span class="badge-count">{{ currentColors.length }}</span>
+                      </div>
+                      
+                      <div class="input-group-row">
+                          <input v-model="newColorName" placeholder="Nama Warna" class="form-input" />
+                          <input v-model="newColorCode" placeholder="Kode" class="form-input w-20 uppercase" @keyup.enter="addColor" />
+                          <button @click="addColor" class="btn-add" title="Tambah Warna">
+                            <span>+</span>
+                          </button>
+                      </div>
+
+                      <ul class="styled-list">
+                          <li v-for="c in currentColors" :key="c.id">
+                              <div class="color-item">
+                                <span class="item-text">{{ c.name }}</span>
+                                <span v-if="c.code" class="code-tag">{{ c.code }}</span>
+                              </div>
+                              <button @click="deleteSubItem('colors', c.id!)" class="btn-remove">&times;</button>
+                          </li>
+                          <li v-if="currentColors.length === 0" class="empty-state">
+                            Belum ada warna terdaftar.
+                          </li>
+                      </ul>
+                  </div>
+
                 </div>
-                <div class="sub-panel">
-                    <h4>🎨 Daftar Warna</h4>
-                    <div class="add-row">
-                        <input v-model="newColorName" placeholder="Nama Warna" class="grow" />
-                        <input v-model="newColorCode" placeholder="Kode" class="w-small uppercase" @keyup.enter="addColor" />
-                        <button @click="addColor" class="btn-add">+</button>
-                    </div>
-                    <ul class="item-list">
-                        <li v-for="c in currentColors" :key="c.id">
-                            <span>{{ c.name }} <small v-if="c.code">({{ c.code }})</small></span>
-                            <button @click="deleteSubItem('colors', c.id!)" class="btn-x">×</button>
-                        </li>
-                        <li v-if="currentColors.length === 0" class="empty">Belum ada warna.</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button @click="configModal.isOpen = false" class="btn-primary">Selesai</button>
-            </div>
-        </div>
-    </div>
+              </div>
+              
+              <div class="modal-footer">
+                  <button @click="configModal.isOpen = false" class="btn-primary">Selesai</button>
+              </div>
+          </div>
+      </div>
+    </Transition>
 
   </div>
 </template>
@@ -197,7 +275,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
-import api from '../api'; // <<-- IMPORT DARI MODUL LOKAL
+import api from '../api';
 import type { Brand, ProductType, ProductVariant, ProductColor } from '@/types/product';
 
 const authStore = useAuthStore();
@@ -226,63 +304,51 @@ onMounted(() => { loadData(); });
 const loadData = async () => {
     isLoading.value = true;
     try {
-        // [MODIFIKASI] Gunakan api.getBrands() tapi logika data persis kode lama
         const [resB, resT] = await Promise.all([
             api.getBrands(),
             api.getTypes()
         ]);
-
-        // Logic "Normal": Cek apakah Array atau Object Pagination
         const rawBrands = resB.data;
         brands.value = Array.isArray(rawBrands) ? rawBrands : (rawBrands['results'] || []);
-
         const rawTypes = resT.data;
         const typesList = Array.isArray(rawTypes) ? rawTypes : (rawTypes['results'] || []);
         
-        // Mapping
         types.value = typesList.map((t: any) => {
             const brand = brands.value.find(b => b.id === t.brand);
             return { ...t, brand_name: brand ? brand.name : '-' };
         });
-    } catch(e) { 
-        console.error(e); 
-    } finally { 
-        isLoading.value = false; 
-    }
+    } catch(e) { console.error(e); } 
+    finally { isLoading.value = false; }
 };
 
 const openModal = (type: string) => {
     Object.keys(form).forEach(k => delete form[k]);
-    form.is_vin_trace = true; form.has_check_digit = true;
+    
+    // Default values
+    form.tracking_mode = 'VIN'; 
+    form.has_check_digit = true;
+    
     modal.type = type;
-    modal.title = type === 'brand' ? 'Tambah Brand' : 'Tambah Tipe';
+    modal.title = type === 'brand' ? 'Tambah Brand Baru' : 'Tambah Tipe Kendaraan';
     modal.isOpen = true;
 };
 
 const submitForm = async () => {
     isSubmitting.value = true;
     try {
-        // [MODIFIKASI] Gunakan API module
-        if (modal.type === 'brand') {
-            await api.createBrand(form);
-        } else {
-            await api.createType(form);
-        }
+        if (modal.type === 'brand') await api.createBrand(form);
+        else await api.createType(form);
         modal.isOpen = false; loadData();
     } catch(e: any) { 
         alert("Gagal: " + (e.response?.data?.detail || "Error")); 
-    } finally { 
-        isSubmitting.value = false; 
-    }
+    } finally { isSubmitting.value = false; }
 };
 
 const deleteItem = async (type: 'brands' | 'types', id: number) => {
     if(!confirm("Yakin hapus?")) return;
     try { 
-        // [MODIFIKASI] Gunakan API module
         if (type === 'brands') await api.deleteBrand(id);
         else await api.deleteType(id);
-        
         loadData(); 
     } catch(e) { alert("Gagal hapus (Data terpakai?)"); }
 };
@@ -296,19 +362,12 @@ const openConfigModal = async (typeObj: any) => {
 
 const loadSubItems = async (typeId: number) => {
     try {
-        // [MODIFIKASI] Gunakan API module
-        const [resV, resC] = await Promise.all([
-            api.getVariants(typeId),
-            api.getColors(typeId)
-        ]);
-        
-        // Logic "Normal" handling pagination
+        const [resV, resC] = await Promise.all([api.getVariants(typeId), api.getColors(typeId)]);
         const rawV = resV.data;
         currentVariants.value = Array.isArray(rawV) ? rawV : (rawV['results'] || []);
-        
         const rawC = resC.data;
         currentColors.value = Array.isArray(rawC) ? rawC : (rawC['results'] || []);
-    } catch(e) { console.error(e); }
+    } catch(e) {}
 };
 
 const addVariant = async () => {
@@ -316,7 +375,7 @@ const addVariant = async () => {
     try {
         await api.createVariant({ product_type: configModal.data.id, name: newVariant.value });
         newVariant.value = ''; loadSubItems(configModal.data.id);
-    } catch(e) { alert("Gagal simpan"); }
+    } catch(e) {}
 };
 
 const addColor = async () => {
@@ -324,7 +383,7 @@ const addColor = async () => {
     try {
         await api.createColor({ product_type: configModal.data.id, name: newColorName.value, code: newColorCode.value });
         newColorName.value = ''; newColorCode.value = ''; loadSubItems(configModal.data.id);
-    } catch(e) { alert("Gagal simpan"); }
+    } catch(e) {}
 };
 
 const deleteSubItem = async (type: 'variants' | 'colors', id: number) => {
@@ -338,56 +397,213 @@ const deleteSubItem = async (type: 'variants' | 'colors', id: number) => {
 </script>
 
 <style scoped>
-/* STYLE COPY-PASTE DARI KODE ASLI ANDA */
-.master-page { padding: 20px; max-width: 1100px; margin: 0 auto; }
-.header { margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
-.header h2 { margin: 0; color: #1e293b; }
-.header p { margin: 5px 0 0; color: #64748b; font-size: 0.9rem; }
-.tabs { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; }
-.tabs button { padding: 10px 15px; background: none; border: none; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
-.tabs button.active { border-bottom-color: #2563eb; color: #2563eb; }
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.card-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-.table { width: 100%; border-collapse: collapse; }
-.table th, .table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; }
-.table th { background: #f1f5f9; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 0.75rem; }
-.badge-brand { background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; }
-.badge-success { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #bbf7d0; }
-.badge-gray { background: #f1f5f9; color: #64748b; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; }
-.badge-info { background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #bfdbfe; }
-.badge-warning { background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #fde68a; }
-.btn-sm { background: #2563eb; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-.btn-config { background: #fff; border: 1px solid #cbd5e1; color: #334155; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-.btn-icon { background: none; border: 1px solid #e2e8f0; width: 30px; height: 30px; border-radius: 4px; cursor: pointer; }
-.btn-icon.danger:hover { background: #fee2e2; border-color: #fca5a5; }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(2px); }
-.modal-card { background: white; width: 100%; max-width: 450px; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; max-height: 90vh; animation: popIn 0.2s ease; }
-.modal-card.wide-modal { max-width: 800px; height: 500px; }
-@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.modal-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-.modal-body { padding: 20px; overflow-y: auto; }
-.modal-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; color: #475569; }
-.form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-.checkbox-group { margin-bottom: 10px; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; background: #f8fafc; }
-.checkbox-label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
-.checkbox-label input { margin-top: 4px; }
-.checkbox-label div { display: flex; flex-direction: column; }
-.checkbox-label small { color: #64748b; font-size: 0.8rem; }
-.grid-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 100%; }
-.sub-panel { border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; background: #fcfcfc; display: flex; flex-direction: column; }
-.sub-panel h4 { margin: 0 0 15px 0; font-size: 0.95rem; color: #475569; padding-bottom: 8px; border-bottom: 1px dashed #e2e8f0; }
-.add-row { display: flex; gap: 5px; margin-bottom: 10px; }
-.add-row input { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; flex: 1; }
-.add-row .w-small { width: 60px; flex: none; text-align: center; }
-.btn-add { background: #16a34a; color: white; border: none; width: 32px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-.item-list { list-style: none; padding: 0; margin: 0; flex: 1; overflow-y: auto; border: 1px solid #f1f5f9; border-radius: 4px; background: white; }
-.item-list li { display: flex; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #f1f5f9; align-items: center; font-size: 0.9rem; }
-.item-list li:last-child { border-bottom: none; }
-.btn-x { background: none; border: none; color: #ef4444; font-weight: bold; cursor: pointer; padding: 0 5px; }
-.btn-primary { background: #2563eb; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
-.btn-secondary { background: #e2e8f0; color: #334155; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
-.btn-close { background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; }
-@media (max-width: 768px) { .grid-2-col { grid-template-columns: 1fr; } .table-responsive table { min-width: 800px; } }
+/* ==========================================================================
+   PAGE LAYOUT
+   ========================================================================== */
+.master-page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+.header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
+.header h2 { margin: 0; font-size: 1.5rem; color: var(--text-primary); }
+.header p { margin: 4px 0 0; color: var(--text-secondary); }
+
+/* Tabs */
+.tabs { display: flex; gap: 20px; border-bottom: 2px solid var(--border-color); margin-bottom: 24px; }
+.tabs button { 
+    padding: 12px 20px; background: none; border: none; font-size: 1rem;
+    font-weight: 600; color: var(--text-secondary); cursor: pointer; 
+    border-bottom: 2px solid transparent; margin-bottom: -2px; transition: 0.3s;
+}
+.tabs button:hover { color: var(--primary-color); }
+.tabs button.active { border-bottom-color: var(--primary-color); color: var(--primary-color); }
+
+/* ==========================================================================
+   TABLE STYLES (RAPID & JUSTIFY)
+   ========================================================================== */
+.card-header { padding: 16px 24px; background: var(--bg-body); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 0 0 12px 12px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table th {
+    background: #f8fafc;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 16px 20px;
+    text-align: left;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.table td {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+/* Column Width Helpers */
+.col-tight { width: 1%; white-space: nowrap; }
+.col-auto { width: auto; }
+.col-action { width: 140px; text-align: right; }
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-muted { color: var(--text-secondary); }
+.font-mono { font-family: monospace; }
+.bold { font-weight: 600; }
+
+/* Badges */
+.badge-brand { background: #eff6ff; color: #1d4ed8; padding: 4px 8px; border-radius: 6px; font-weight: 600; font-size: 0.8rem; }
+
+.badge-mode { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; border: 1px solid transparent; display: inline-flex; justify-content: center; }
+.badge-mode.VIN { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.badge-mode.INTERNAL_ID { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+.badge-mode.BATCH { background: #ffedd5; color: #9a3412; border-color: #fed7aa; }
+
+.badge-info { background: #eff6ff; color: #1e40af; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+.badge-warning { background: #fefce8; color: #854d0e; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; }
+
+/* ==========================================================================
+   MODAL STYLES (MODERN)
+   ========================================================================== */
+.modal-backdrop {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+}
+
+.modal-dialog {
+    background: var(--bg-card);
+    width: 100%; max-width: 500px;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    display: flex; flex-direction: column;
+    max-height: 90vh;
+    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modal-dialog.wide-dialog { max-width: 900px; height: 650px; }
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex; justify-content: space-between; align-items: flex-start;
+}
+.modal-header h3 { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+.modal-header .subtitle { margin: 4px 0 0; color: var(--text-secondary); font-size: 0.9rem; }
+
+.btn-close {
+    background: transparent; border: none; cursor: pointer;
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+}
+.btn-close:hover { background: #f1f5f9; }
+.close-icon { font-size: 1.5rem; line-height: 1; color: var(--text-secondary); }
+
+.modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; margin-bottom: 8px; font-weight: 500; font-size: 0.9rem; color: var(--text-primary); }
+.required { color: #ef4444; margin-left: 2px; }
+.helper-text { display: block; margin-top: 6px; font-size: 0.8rem; color: var(--text-secondary); }
+
+.form-input, .form-select {
+    width: 100%; padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-body);
+    font-size: 0.95rem; color: var(--text-primary);
+    transition: all 0.2s;
+    box-sizing: border-box;
+}
+.form-input:focus, .form-select:focus {
+    outline: none; border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.row-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.tracking-options { display: flex; flex-direction: column; gap: 10px; }
+.radio-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border: 1px solid var(--border-color);
+    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+}
+.radio-card:hover { background: #f8fafc; }
+.radio-card.active { border-color: var(--primary-color); background: #eff6ff; }
+.radio-content { display: flex; flex-direction: column; }
+.radio-title { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+.radio-desc { font-size: 0.8rem; color: var(--text-secondary); }
+
+.toggle-group { display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px dashed var(--border-color); }
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--primary-color); }
+input:checked + .slider:before { transform: translateX(20px); }
+.toggle-label { display: flex; flex-direction: column; font-size: 0.9rem; }
+
+.modal-footer {
+    padding: 20px 24px; border-top: 1px solid var(--border-color);
+    display: flex; justify-content: flex-end; gap: 12px;
+    background: var(--bg-body); border-radius: 0 0 16px 16px;
+}
+
+/* Buttons */
+.btn-sm { padding: 8px 16px; font-size: 0.85rem; }
+.btn-primary { background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
+.btn-ghost { background: transparent; color: var(--text-secondary); border: none; padding: 10px 20px; font-weight: 600; cursor: pointer; }
+.btn-ghost:hover { background: rgba(0,0,0,0.05); border-radius: 8px; color: var(--text-primary); }
+
+.btn-config { background: white; border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+.btn-config:hover { border-color: var(--primary-color); color: var(--primary-color); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+/* Config Grid */
+.config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; height: 100%; }
+.config-panel { background: #f8fafc; border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; }
+.panel-header h4 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+.badge-count { background: #e2e8f0; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); }
+
+.input-group-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.w-20 { width: 80px; text-align: center; }
+
+.btn-add { background: #10b981; color: white; border: none; width: 40px; border-radius: 8px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+.btn-add:hover { background: #059669; }
+
+.styled-list { list-style: none; padding: 0; margin: 0; flex: 1; overflow-y: auto; }
+.styled-list li { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: white; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; transition: 0.2s; }
+.styled-list li:hover { border-color: #cbd5e1; transform: translateX(2px); }
+
+.item-text { font-weight: 500; font-size: 0.9rem; color: var(--text-primary); }
+.code-tag { font-family: monospace; background: #e2e8f0; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; margin-left: 8px; }
+
+.btn-remove { background: none; border: none; color: #cbd5e1; font-size: 1.2rem; cursor: pointer; transition: 0.2s; }
+.btn-remove:hover { color: #ef4444; }
+
+.empty-state { padding: 20px; text-align: center; color: var(--text-secondary); font-style: italic; font-size: 0.9rem; }
+
+/* Animation */
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s ease; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 </style>

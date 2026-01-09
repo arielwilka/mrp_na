@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
 import type { QCTemplate, QCResultPayload } from '@/types/qc'; 
 
-const BASE_URL = 'http://127.0.0.1:8000/api/qc';
+const BASE_URL = '/qc';
 
 const getConfig = () => {
     const authStore = useAuthStore();
@@ -39,5 +39,11 @@ export default {
   }, 
   getHistory() {
       return axios.get(`${BASE_URL}/inspections/`, getConfig());
+  },
+  getSecureImage(filename: string) {
+      return axios.get(`${BASE_URL}/evidence/${filename}`, {
+          ...getConfig(),
+          responseType: 'blob' // PENTING: Minta respons sebagai file biner
+      });
   }
 };

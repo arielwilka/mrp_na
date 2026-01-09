@@ -4,7 +4,7 @@ export interface MenuItem {
   to?: string;
   children?: MenuItem[];
   adminOnly?: boolean; 
-  moduleName?: string; // Kunci akses (bisa di Parent atau Child)
+  moduleName?: string;
 }
 
 export const menuItems: MenuItem[] = [
@@ -26,127 +26,93 @@ export const menuItems: MenuItem[] = [
     ]
   },
   
-  // 2. TRACEABILITY (Dipisah menjadi menu utama sendiri)
+  // TRACEABILITY
   {
     label: 'Traceability Config',
     icon: '🔗',
-    // Sekarang dia ada di Level 1, anak-anaknya di Level 2 (Aman)
     children: [
-        { 
-             label: 'Rules Engine', 
-             to: '/traceability/rules', 
-             icon: '📏',
-             moduleName: 'traceability' 
-        },
-        { 
-             label: 'Part Master', 
-             to: '/traceability/parts', 
-             icon: '⚙️',
-             moduleName: 'traceability' 
-        },
-        { 
-             label: 'BOM Versioning', 
-             to: '/traceability/bom', 
-             icon: '📑',
-             moduleName: 'traceability' 
-        },
-    ]
-  },
-  // 3. QUALITY CONTROL (TRANSAKSI) - [UPDATED]
-  {
-    label: 'Quality Control',
-    icon: '✅',
-    children: [
-        {
-            label: 'QC Workstation',  // Halaman Operator
-            to: '/qc/station',
-            icon: '🛡️',
-            // Module name 'qc' sesuai dengan backend app dan permission
-            moduleName: 'qc' 
-        },
-        {
-            label: 'Riwayat QC',
-            to: '/qc/history',
-            icon: '📜',
-            moduleName: 'qc'
-        }
-        // (Opsional: Jika nanti Anda buat halaman history log QC)
-        /*
-        {
-            label: 'Inspection History',
-            to: '/qc/history',
-            icon: '📜',
-            moduleName: 'qc'
-        }
-        */
-    ]
-  },
-  
-  // --- MODUL VIN (Combined Group) ---
-  {
-    label: 'VIN Administration', // Ganti nama jadi lebih umum
-    icon: '🚗',
-    // PENTING: Jangan pasang moduleName di sini agar parent selalu muncul
-    // (atau Sidebar logic Anda harus pintar mengecek 'jika salah satu anak visible')
-    children: [
-      {
-        label: 'VIN Generation', // Operasional
-        to: '/vin-record/create',
-        icon: '➕',
-        moduleName: 'vin_record' // <--- Khusus Staff Produksi
-      },
-      {
-        label: 'Data History', // Operasional
-        to: '/vin-record/list',
-        icon: '📋',
-        moduleName: 'vin_record' // <--- Khusus Staff Produksi
-      },
-      {
-        label: 'Master Config', // Configuration
-        to: '/vin-record/master',
-        icon: '⚙️',
-        moduleName: 'vin_master' // <--- Khusus Engineering/IT
-      }
-    ]
-  },
-  {
-    label: 'Quality Control',
-    icon: '✅',
-    // Parent tidak perlu moduleName, karena Sidebar Anda otomatis
-    // menyembunyikan parent jika semua children ter-filter (hidden).
-    children: [
-        {
-            label: 'Battery Check',
-            to: '/battery-qc',
-            icon: '🔋',
-            // Menu ini hanya muncul jika user punya izin 'battery_record.read'
-            moduleName: 'battery_record' 
-        },
-        {
-            label: 'Riwayat QC',
-            to: '/battery-qc/list',
-            icon: '📜',
-            moduleName: 'battery_record'
-        }
+        { label: 'Rules Engine', to: '/traceability/rules', icon: '📏', moduleName: 'traceability' },
+        { label: 'Part Master', to: '/traceability/parts', icon: '⚙️', moduleName: 'traceability' },
+        { label: 'BOM Versioning', to: '/traceability/bom', icon: '📑', moduleName: 'traceability' },
     ]
   },
 
-  // --- MODUL ADMIN (Superuser) ---
+  // --- [BARU] PRODUCTION ENGINEERING ---
+  {
+    label: 'Production Eng.',
+    icon: '🏭',
+    children: [
+        { 
+            label: 'Layout & Station', 
+            to: '/production/layout', 
+            icon: '📍', 
+            moduleName: 'production_master' 
+        },
+        { 
+            label: 'Route & Process', 
+            to: '/production/routes', 
+            icon: '🗺️', 
+            moduleName: 'production_master' 
+        },
+    ]
+  },
+  {
+    label: 'PPIC & Order',
+    icon: '📅',
+    children: [
+        { 
+            label: 'Monthly Plan', 
+            to: '/production/plans', 
+            icon: '📊', 
+            moduleName: 'production_ppic' 
+        },
+        { 
+            label: 'Daily Order (SPK)', 
+            to: '/production/orders', 
+            icon: '📝', 
+            moduleName: 'production_ppic' 
+        },
+    ]
+},
+{
+    label: 'SHOP FLOOR MODE',
+    to: '/shop-floor/login',
+    icon: '🏭',
+    // Tidak ada moduleName khusus, atau bisa pakai 'production_operator'
+},
+
+  // QC EXECUTION
+  {
+    label: 'Quality Control',
+    icon: '✅',
+    children: [
+        { label: 'QC Workstation', to: '/qc/station', icon: '🛡️', moduleName: 'qc' },
+        { label: 'Riwayat QC', to: '/qc/history', icon: '📜', moduleName: 'qc' },
+        // Battery QC (Legacy) digabung disini agar rapi
+        { label: 'Battery Check', to: '/battery-qc', icon: '🔋', moduleName: 'battery_record' },
+        { label: 'Battery History', to: '/battery-qc/list', icon: '📋', moduleName: 'battery_record' }
+    ]
+  },
+  
+  // VIN ADMINISTRATION
+  {
+    label: 'VIN Administration',
+    icon: '🚗',
+    children: [
+      { label: 'VIN Generation', to: '/vin-record/create', icon: '➕', moduleName: 'vin_record' },
+      { label: 'Data History', to: '/vin-record/list', icon: '📋', moduleName: 'vin_record' },
+      { label: 'Master Config', to: '/vin-record/master', icon: '⚙️', moduleName: 'vin_master' }
+    ]
+  },
+
+  // ADMIN
   {
     label: 'Administrator',
     icon: '🛡️',
-    adminOnly: true, // Khusus Superuser
+    adminOnly: true,
     children: [
-      {
-        label: 'User & Roles',
-        to: '/admin/roles',
-        icon: '👥'
-      },
-      {
-        label: 'Label Designer',
-        to: '/admin/label-designer',
-        icon: '🎨'
-      }
+      { label: 'User & Roles', to: '/admin/roles', icon: '👥' },
+      { label: 'Label Designer', to: '/admin/label-designer', icon: '🎨' }
     ]
   }
 ];

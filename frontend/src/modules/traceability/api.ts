@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 import type { Rule, Part, Version } from '@/types/traceability';
 
 // 1. URL ABSOLUT (Sama seperti module Product)
-const BASE_URL = 'http://127.0.0.1:8000/api/traceability';
+const BASE_URL = '/traceability';
 
 // 2. Helper Header Token
 const getConfig = () => {

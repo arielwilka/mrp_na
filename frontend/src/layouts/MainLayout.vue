@@ -1,47 +1,45 @@
 <template>
   <div class="layout-wrapper">
-    
     <AppSidebar />
-
     <div class="main-content">
-      
       <AppNavbar />
-
       <div class="content-body">
-        <router-view></router-view>
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </div>
-
     </div>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import AppSidebar from '../components/layout/AppSidebar.vue';
-import AppNavbar from '../components/layout/AppNavbar.vue';
+import AppSidebar from '@/components/layout/AppSidebar.vue';
+import AppNavbar from '@/components/layout/AppNavbar.vue';
 </script>
 
 <style scoped>
-/* HANYA CSS STRUKTUR LAYOUT */
 .layout-wrapper { 
   display: flex; 
   height: 100vh; 
   overflow: hidden; 
   background-color: var(--bg-body); 
-  color: var(--text-primary); 
 }
-
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-body);
-  transition: background-color 0.3s;
+  overflow: hidden; /* Penting agar scroll ada di content-body */
 }
-
 .content-body {
   flex: 1;
-  padding: 32px;
+  padding: 24px;
   overflow-y: auto;
+  background-color: var(--bg-body);
 }
+
+/* Animasi Transisi Halaman */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

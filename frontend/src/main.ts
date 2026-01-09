@@ -10,7 +10,7 @@ const app = createApp(App)
 
 // --- 1. CONFIG AXIOS GLOBAL ---
 // Set Base URL agar tidak perlu ketik berulang-ulang di component
-axios.defaults.baseURL = 'http://127.0.0.1:8000/api';
+axios.defaults.baseURL = '/api';
 
 // --- 2. RESTORE TOKEN (SAAT REFRESH) ---
 const token = localStorage.getItem('token');

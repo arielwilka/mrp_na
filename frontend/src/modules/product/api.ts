@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth';
 import type { Brand, ProductType, ProductVariant, ProductColor } from '@/types/product';
 
 // Gunakan URL ABSOLUT yang sama persis dengan kode normal Anda
-const BASE_URL = 'http://127.0.0.1:8000/api/product';
+const BASE_URL = '/product';
 
 // Helper untuk header Auth (Safety net agar token selalu terbawa)
 const getConfig = () => {

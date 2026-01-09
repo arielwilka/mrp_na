@@ -55,17 +55,12 @@ class RuleSegment(models.Model):
 # 2. PART MASTER (The Object)
 # ==========================================
 class PartMaster(models.Model):
-    """
-    Katalog Part.
-    Lokasi: backend/traceability/models.py
-    """
     part_number = models.CharField(max_length=50, unique=True)
     part_name = models.CharField(max_length=100)
     
     validation_rule = models.ForeignKey('SerialRule', on_delete=models.SET_NULL, null=True, blank=True)
     
-    # --- [NEW] TAMBAHAN UNTUK CONFIG QC ---
-    # Field ini memberi tahu Modul QC bagaimana cara memperlakukan part ini
+    # --- UPDATE: CONFIG QC ---
     is_qc_required = models.BooleanField(
         default=True, 
         help_text="TRUE: Wajib di-scan di Modul QC (Receiving). FALSE: Langsung ke Produksi."
@@ -74,7 +69,7 @@ class PartMaster(models.Model):
         default=True, 
         help_text="TRUE: Serial Number Global Unik. FALSE: Batch based."
     )
-    # ----------------------------------------
+    # -------------------------
 
     supplier = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)

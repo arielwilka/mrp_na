@@ -38,35 +38,31 @@ class QCTemplate(models.Model):
 # 2. INVENTORY ITEM (Barang Fisik)
 # ==========================================
 class InventoryItem(models.Model):
-    """
-    Stok barang yang ada di pabrik (Instance dari PartMaster).
-    """
     STATUS_CHOICES = [
-        ('PENDING', 'Pending QC'),     # Baru masuk, belum dicek
-        ('OK', 'OK (Ready Stock)'),    # Lolos QC
-        ('NG', 'Not Good (Reject)'),   # Gagal QC
-        ('USED', 'Used (Installed)'),  # Disiapkan untuk masa depan (modul produksi)
-        ('SCRAPPED', 'Scrapped'),      # Dibuang
+        ('PENDING', 'Pending QC'),     
+        ('OK', 'OK (Ready Stock)'),    
+        ('NG', 'Not Good (Reject)'),   
+        ('USED', 'Used (Installed)'),  
+        ('SCRAPPED', 'Scrapped'),      
     ]
 
     part_master = models.ForeignKey(PartMaster, on_delete=models.PROTECT, related_name='inventory_items')
     serial_number = models.CharField(max_length=100, db_index=True)
     
-    # Status Lifecycle
+    # --- PERBAIKAN NAMA FIELD ---
     current_status = models.CharField(
         max_length=20, 
         choices=STATUS_CHOICES, 
         default='PENDING', 
         db_index=True
     )
+    # ----------------------------
     
     batch_number = models.CharField(max_length=100, blank=True, null=True)
-    
     updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Kombinasi Part + Serial harus unik
         unique_together = ('part_master', 'serial_number')
         ordering = ['-created_at']
 

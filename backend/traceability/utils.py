@@ -1,10 +1,11 @@
-# backend/traceability/utils.py
 from django.core.exceptions import ValidationError
 
 def validate_serial_number(serial_number, rule):
     """
-    Core Logic Validasi. 
-    Bisa dipanggil oleh SerialRuleViewSet (Test) ataupun Modul QC (Live Scan).
+    Validasi Serial Number berdasarkan Rule Segment.
+    Digunakan oleh:
+    1. SerialRuleViewSet (Tombol Test di Admin/Frontend)
+    2. Modul QC/Production (Saat scan barang masuk)
     """
     if not rule:
         return True # Lolos jika tidak ada rule

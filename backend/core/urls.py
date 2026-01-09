@@ -35,20 +35,23 @@ urlpatterns = [
     
     # 1. URL Modul Core
     path('api/', include(router.urls)), 
+    
+    # 2. URL Modul Master Product
     path('api/product/', include('product.urls')),
 
-    # 2. URL Modul VIN RECORD
+    # 3. URL Modul VIN & Traceability
     path('api/vin-record/', include('vin_record.urls')), 
     path('api/traceability/', include('traceability.urls')),
-    # 4. URL Modul QC (TRANSACTION: Inventory Fisik & Inspection)
-    # Ini modul baru yang menangani Baterai & Part lainnya.
-    # Endpoint contoh: http://localhost:8000/api/qc/submit-result/
-    # Note: Kita arahkan langsung ke folder api karena logic ada disana
+
+    # 4. URL Modul QC (Receiving & Inspection)
     path('api/qc/', include('qc.urls')),
 
-    # 3. URL Modul BATTERY RECORD (BARU)
-    # Saya gunakan prefix 'api/battery/' agar endpointnya menjadi:
-    # http://localhost:8000/api/battery/records/
+    # 5. URL Modul PRODUCTION (BARU - MRP Hybrid)
+    # Endpoint utama: http://localhost:8000/api/production/orders/
+    # Endpoint operator: http://localhost:8000/api/production/shop-floor/
+    path('api/production/', include('production.urls')),
+
+    # 6. URL Modul Battery (Legacy/Eksisting)
     path('api/battery/', include('battery_record.urls')), 
 ]
 

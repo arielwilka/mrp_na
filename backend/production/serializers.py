@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
 from django.utils import timezone
-from django.db.models import Max # <--- PENTING
 
 # Import Models
 from .models import (
@@ -29,25 +28,15 @@ class WorkCenterSerializer(serializers.ModelSerializer):
 class RouteConfigSerializer(serializers.ModelSerializer):
     station_name = serializers.CharField(source='station.name', read_only=True)
     station_code = serializers.CharField(source='station.code', read_only=True)
-    
     required_parts = serializers.PrimaryKeyRelatedField(
-        source='traceability_triggers', 
-        many=True,
-        queryset=PartMaster.objects.all(),
-        write_only=True
+        source='traceability_triggers', many=True, queryset=PartMaster.objects.all(), write_only=True
     )
     required_parts_names = serializers.StringRelatedField(
-        source='traceability_triggers',
-        many=True,
-        read_only=True
+        source='traceability_triggers', many=True, read_only=True
     )
     class Meta:
         model = RouteStationConfig
-        fields = [
-            'id', 'route', 'station', 'station_name', 'station_code', 
-            'sequence', 'progress_percentage', 
-            'required_parts', 'required_parts_names'
-        ]
+        fields = ['id', 'route', 'station', 'station_name', 'station_code', 'sequence', 'progress_percentage', 'required_parts', 'required_parts_names']
 
 class ProductionRouteSerializer(serializers.ModelSerializer):
     steps = RouteConfigSerializer(many=True, read_only=True)
@@ -71,25 +60,20 @@ class ProductionUnitSerializer(serializers.ModelSerializer):
     current_station_name = serializers.CharField(source='current_station.name', read_only=True, default='-')
     variant_name = serializers.CharField(source='product_variant.name', read_only=True)
     color_name = serializers.SerializerMethodField()
-
     class Meta:
         model = ProductionUnit
-        fields = [
-            'id', 'origin_order', 'variant_name', 'color_name',
-            'identity_label', 'internal_id', 'vin_record',
-            'current_station', 'current_station_name',
-            'status', 'is_paused', 'pause_reason'
-        ]
-
+        fields = ['id', 'origin_order', 'variant_name', 'color_name', 'identity_label', 'internal_id', 'vin_record', 'current_station', 'current_station_name', 'status', 'is_paused', 'pause_reason']
+    
     def get_identity_label(self, obj: ProductionUnit):
-        if obj.vin_record:
-            return obj.vin_record.full_vin
-        return obj.internal_id
-
+        return obj.vin_record.full_vin if obj.vin_record else obj.internal_id
+    
     def get_color_name(self, obj: ProductionUnit):
         plan = obj.origin_order.plan
         return plan.color.name if plan.color else '-'
 
+# ==========================================
+# 3. PRODUCTION ORDER (LOGIC INTIGRASI)
+# ==========================================
 class ProductionOrderSerializer(serializers.ModelSerializer):
     plan_code = serializers.CharField(source='plan.plan_code', read_only=True)
     product_variant_name = serializers.CharField(source='plan.product_variant.name', read_only=True)
@@ -101,9 +85,9 @@ class ProductionOrderSerializer(serializers.ModelSerializer):
             'id', 'order_number', 'plan', 'plan_code', 'product_variant_name',
             'target_total_qty', 'carried_over_wip_qty', 'new_material_qty',
             'actual_finish_qty', 'actual_reject_qty',
-            'status', 'tracking_mode_snapshot', 'created_at', 'total_wip'
+            'status', 'tracking_mode_snapshot', 'created_at', 'total_wip', 'current_wip_qty'
         ]
-        read_only_fields = ('order_number', 'carried_over_wip_qty', 'new_material_qty', 'actual_finish_qty', 'actual_reject_qty', 'tracking_mode_snapshot', 'status')
+        read_only_fields = ('order_number', 'carried_over_wip_qty', 'new_material_qty', 'actual_finish_qty', 'actual_reject_qty', 'tracking_mode_snapshot', 'status', 'current_wip_qty')
 
     def get_total_wip(self, obj):
         return obj.units.filter(status='WIP').count()
@@ -111,86 +95,90 @@ class ProductionOrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         try:
             with transaction.atomic():
-                # 1. Create Order
+                plan = validated_data.get('plan')
+                target_qty = validated_data.get('target_total_qty')
+                mode = validated_data.get('tracking_mode_snapshot', 'VIN')
+
+                # 1. HITUNG WIP GANTUNG (SISA KEMARIN)
+                # Cari unit yg statusnya WIP atau PAUSED untuk Varian yg sama
+                # Logic: Order baru ini akan "mengadopsi" unit-unit gantung tersebut
+                existing_wip_count = ProductionUnit.objects.filter(
+                    product_variant=plan.product_variant,
+                    status__in=['WIP', 'PAUSED']
+                ).count()
+
+                # 2. HITUNG KEBUTUHAN BARU (NET REQUIREMENT)
+                # Rumus: Yang perlu dibuat baru = Target - Sisa WIP
+                net_new_needed = target_qty - existing_wip_count
+                
+                if net_new_needed < 0:
+                    net_new_needed = 0
+
+                # 3. BOOKING VIN (Hanya sejumlah Net Needed)
+                available_vins = []
+                if mode == 'VIN' and net_new_needed > 0:
+                    # KUNCI: Cari VIN Available sesuai Varian & Warna
+                    available_vins = list(VinRecord.objects.select_for_update().filter(
+                        product_type=plan.product_variant.product_type,
+                        variant=plan.product_variant,
+                        color=plan.color,
+                        status='AVAILABLE'
+                    ).order_by('serial_number')[:net_new_needed])
+
+                    if len(available_vins) < net_new_needed:
+                        raise serializers.ValidationError(
+                            f"Stok VIN Tidak Cukup! Target Order: {target_qty}. "
+                            f"WIP Gantung: {existing_wip_count}. Butuh Baru: {net_new_needed}. "
+                            f"Tersedia di VIN Record: {len(available_vins)}."
+                        )
+
+                # 4. CREATE ORDER HEADER
                 order = ProductionOrder.objects.create(**validated_data)
                 
-                target_qty = order.target_total_qty
+                # ISI FIELD LOGIC
+                order.carried_over_wip_qty = existing_wip_count # WIP Lama (misal 2)
+                order.new_material_qty = net_new_needed         # WIP Baru (misal 8)
                 
-                # --- [FIX] INISIALISASI WIP QTY ---
-                # Defaultnya 0. Kita set ke target_qty karena semua unit baru dimulai sbg WIP.
-                # Ini mencegah error "CHECK constraint failed" saat pengurangan nanti.
+                # PENTING: Current WIP = Target Qty (2 + 8 = 10)
+                # Karena order ini bertanggung jawab menyelesaikan SEMUA (Lama + Baru).
+                # Nanti saat finish, dia akan mengurangi angka ini. 
+                # Jika kita set cuma 8, nanti saat finish ke-9 dan 10 akan error negatif.
                 order.current_wip_qty = target_qty 
                 
-                mode = order.tracking_mode_snapshot
-                plan = order.plan 
-                product_variant = plan.product_variant
-                product_color = plan.color
-                
-                year_obj = None
-                current_serial_int = 0 
+                order.tracking_mode_snapshot = mode
+                order.status = 'RELEASED'
+                order.save()
 
-                if mode == 'VIN':
-                    current_year = timezone.now().year
-                    year_obj = YearCode.objects.filter(year=current_year).first()
-                    if not year_obj:
-                         year_obj, _ = YearCode.objects.get_or_create(year=current_year, defaults={'code': str(current_year)[-1]})
-                    
-                    # Cek Max Serial Number (Auto Increment)
-                    last_vin = VinRecord.objects.filter(
-                        product_type=product_variant.product_type,
-                        production_year=year_obj
-                    ).aggregate(Max('serial_number'))['serial_number__max']
-
-                    if last_vin:
-                        try:
-                            current_serial_int = int(last_vin)
-                        except ValueError:
-                            current_serial_int = 0
-                
+                # 5. GENERATE UNIT BARU (Hanya sejumlah Net Needed)
                 units_batch = []
-                
-                for i in range(target_qty):
-                    next_serial_int = current_serial_int + 1 + i
-                    seq_num_order = i + 1
-                    temp_internal_id = f"{order.order_number}-{seq_num_order:03d}"
+                for i in range(net_new_needed):
+                    seq_num = i + 1
+                    # Internal ID tetap urut per order untuk referensi
+                    temp_internal_id = f"{order.order_number}-{seq_num:03d}"
                     
                     vin_obj = None
-                    if mode == 'VIN' and year_obj:
-                        dummy_serial = f"{next_serial_int:06d}" 
-                        
-                        vin_obj = VinRecord.objects.create(
-                            product_type=product_variant.product_type,
-                            variant=product_variant,
-                            color=product_color, 
-                            production_year=year_obj,
-                            serial_number=dummy_serial, 
-                            full_vin=f"TMP-{temp_internal_id}", 
-                            status='RESERVED'
-                        )
+                    if mode == 'VIN':
+                        vin_obj = available_vins[i]
+                        vin_obj.status = 'RESERVED'
+                        vin_obj.booking_reference = order.order_number
+                        vin_obj.save()
                     
                     units_batch.append(ProductionUnit(
                         origin_order=order,
-                        product_variant=product_variant,
+                        product_variant=plan.product_variant,
                         internal_id=temp_internal_id,
                         vin_record=vin_obj,
                         status='WIP'
                     ))
                 
                 ProductionUnit.objects.bulk_create(units_batch)
-                
-                order.status = 'RELEASED'
-                order.new_material_qty = target_qty
-                order.save() # Save update current_wip_qty tadi
-                
                 return order
 
         except Exception as e:
-            raise serializers.ValidationError({"detail": f"Gagal membuat order: {str(e)}"})
+            if isinstance(e, serializers.ValidationError): raise e
+            raise serializers.ValidationError({"detail": f"Gagal create order: {str(e)}"})
 
-# ==========================================
-# 3. HISTORY & LOG SERIALIZERS
-# ==========================================
-
+# ... (History Serializers TETAP SAMA) ...
 class PartInstallationLogSerializer(serializers.ModelSerializer):
     part_name = serializers.CharField(source='part_master.part_name', read_only=True)
     part_number = serializers.CharField(source='part_master.part_number', read_only=True)
@@ -206,8 +194,5 @@ class StationActivityLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = StationActivityLog
         fields = ['id', 'unit', 'unit_identity', 'station_name', 'check_in_time', 'result_status', 'operator_name']
-    
     def get_unit_identity(self, obj: StationActivityLog):
-        if obj.unit.vin_record:
-            return obj.unit.vin_record.full_vin
-        return obj.unit.internal_id
+        return obj.unit.vin_record.full_vin if obj.unit.vin_record else obj.unit.internal_id

@@ -11,13 +11,20 @@ export interface PermissionMap {
     [moduleCode: string]: ModulePermission;
 }
 
-// Respon Login
+// Respon Login (Sesuai punya Anda)
 export interface LoginResponse {
     token: string;
     user_id: number;
     username: string;
     is_superuser: boolean;
     permissions: PermissionMap;
+}
+
+// [TAMBAHAN BARU] Interface User untuk State Pinia
+export interface User {
+    id: number;
+    username: string;
+    email?: string; // Optional
 }
 
 // Untuk Halaman Admin Role Manager

@@ -1,56 +1,71 @@
 <template>
   <div class="master-page">
+    
     <div class="header">
-      <h2>⚙️ Master Konfigurasi VIN</h2>
-      <p>Halaman ini hanya dapat diakses oleh Administrator Engineering/IT.</p>
+      <div>
+        <h2>⚙️ Master Konfigurasi VIN</h2>
+        <p>Pengaturan kode tahun dan prefix WMI/VDS per model kendaraan.</p>
+      </div>
     </div>
 
     <div v-if="isLoading" class="loading-state">
-      <div class="spinner"></div> Memuat Data Master...
+      <div class="spinner"></div> Memuat Data...
     </div>
 
-    <div v-else>
+    <div v-else class="fade-in">
+      
       <div class="tabs">
-        <button :class="{ active: activeTab === 'prefixes' }" @click="activeTab = 'prefixes'">Aturan Prefix</button>
-        <button :class="{ active: activeTab === 'years' }" @click="activeTab = 'years'">Tahun Produksi</button>
+        <button :class="{ active: activeTab === 'prefixes' }" @click="activeTab = 'prefixes'">
+          📝 Aturan Prefix (WMI/VDS)
+        </button>
+        <button :class="{ active: activeTab === 'years' }" @click="activeTab = 'years'">
+          📅 Tahun Produksi
+        </button>
       </div>
 
       <div v-if="activeTab === 'prefixes'" class="tab-content">
         <div class="card">
           <div class="card-header">
             <h3>Mapping Prefix VIN</h3>
-            <button v-if="canCreate" @click="openModal('addPrefix')" class="btn-sm">+ Rule Baru</button>
+            <button v-if="canCreate" @click="openModal('addPrefix')" class="btn-primary btn-sm">
+              + Rule Baru
+            </button>
           </div>
           <div class="table-responsive">
-            <table class="table">
+            <table class="table table-complex">
               <thead>
                 <tr>
-                  <th>Produk</th> <th>Tahun</th>
-                  <th>WMI + VDS</th>
-                  <th class="text-center">Check Digit (Static)</th> 
-                  <th>Plant</th>
-                  <th>Aksi</th>
+                  <th class="col-product">Produk</th>
+                  <th class="col-tight text-center">Tahun</th>
+                  <th class="col-tight text-center">WMI + VDS</th>
+                  <th class="col-tight text-center">Digit 9</th>
+                  <th class="col-tight text-center">Plant</th>
+                  <th class="col-action text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="prefixes.length === 0"><td colspan="6" class="text-center">Belum ada rule.</td></tr>
                 <tr v-for="p in prefixes" :key="p.id">
-                  <td data-label="Produk"><strong>{{ p.product_type_name }}</strong></td>
-                  <td data-label="Tahun">{{ p.year_code_label }}</td>
-                  <td data-label="WMI+VDS" class="code-cell">{{ p.wmi_vds }}</td>
-                  
-                  <td data-label="Static Digit" class="text-center">
-                    <span v-if="p.static_ninth_digit !== null && p.static_ninth_digit !== ''" class="badge-static">
-                      {{ p.static_ninth_digit }}
+                  <td class="cell-truncate">
+                    <div class="product-info" :title="p.product_type_name">
+                      <strong class="text-primary">{{ p.product_type_name }}</strong>
+                      <span class="mode-badge">{{ p.tracking_mode || 'VIN' }}</span>
+                    </div>
+                  </td>
+                  <td class="text-center"><span class="badge-year">{{ p.year_code_label }}</span></td>
+                  <td class="text-center"><span class="code-box">{{ p.wmi_vds }}</span></td>
+                  <td class="text-center no-wrap">
+                    <span v-if="p.static_ninth_digit && p.static_ninth_digit !== '0'" class="badge-static">
+                      Fix: {{ p.static_ninth_digit }}
                     </span>
-                    <span v-else class="text-muted text-xs">Auto (ISO)</span>
+                    <span v-else class="badge-auto">Auto</span>
                   </td>
-
-                  <td data-label="Plant" class="code-cell">{{ p.plant_code }}</td>
-                  <td data-label="Aksi">
-                    <button v-if="canDelete" @click="deleteItem('prefixes', p.id)" class="btn-danger-text">Hapus</button>
-                    <span v-else class="text-muted">-</span>
+                  <td class="text-center"><span class="font-mono font-bold">{{ p.plant_code }}</span></td>
+                  <td class="text-right">
+                    <button v-if="canDelete" @click="deleteItem('prefixes', p.id)" class="btn-icon danger" title="Hapus">🗑️</button>
                   </td>
+                </tr>
+                <tr v-if="prefixes.length === 0">
+                  <td colspan="6" class="text-center py-8 text-muted">Belum ada rule prefix.</td>
                 </tr>
               </tbody>
             </table>
@@ -59,249 +74,265 @@
       </div>
 
       <div v-if="activeTab === 'years'" class="tab-content">
-        <div class="card">
-          <div class="card-header">
+        <div class="card max-w-xl"> <div class="card-header">
             <h3>Kode Tahun Produksi</h3>
-            <button v-if="canCreate" @click="openModal('addYear')" class="btn-sm">+ Tahun Baru</button>
+            <button v-if="canCreate" @click="openModal('addYear')" class="btn-primary btn-sm">
+              + Tahun Baru
+            </button>
           </div>
           <div class="table-responsive">
             <table class="table">
-              <thead><tr><th>Tahun</th><th>Kode VIN</th><th>Aksi</th></tr></thead>
+              <thead>
+                <tr>
+                  <th class="pl-6">Tahun Masehi</th>
+                  <th class="text-center w-32">Kode VIN</th>
+                  <th class="text-right w-24 pr-6">Aksi</th>
+                </tr>
+              </thead>
               <tbody>
-                <tr v-if="years.length === 0"><td colspan="3" class="text-center">Belum ada data.</td></tr>
                 <tr v-for="y in years" :key="y.id">
-                  <td data-label="Tahun">{{ y.year }}</td>
-                  <td data-label="Kode VIN" class="code-cell">{{ y.code }}</td>
-                  <td data-label="Aksi">
-                    <button v-if="canDelete" @click="deleteItem('years', y.id)" class="btn-danger-text">Hapus</button>
-                    <span v-else class="text-muted">-</span>
+                  <td class="font-bold text-lg pl-6">{{ y.year }}</td>
+                  <td class="text-center">
+                    <span class="char-box">{{ y.code }}</span>
                   </td>
+                  <td class="text-right pr-6">
+                    <button v-if="canDelete" @click="deleteItem('years', y.id)" class="btn-icon danger" title="Hapus">🗑️</button>
+                  </td>
+                </tr>
+                <tr v-if="years.length === 0">
+                  <td colspan="3" class="text-center py-8 text-muted">Belum ada data tahun.</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
       </div>
+
     </div>
 
-    <div v-if="modal.isOpen" class="modal-overlay" @click.self="modal.isOpen = false">
-      <div class="modal-card">
-        <div class="modal-header">
-            <h3>{{ modal.title }}</h3>
-            <button @click="modal.isOpen = false" class="btn-close">×</button>
-        </div>
-        
-        <div class="modal-body">
-            <div v-if="modal.type === 'addYear'">
-                <label>Tahun (Angka)</label>
-                <input type="number" v-model="form.year" placeholder="2025" />
-                <label>Kode VIN (1 Karakter)</label>
-                <input v-model="form.code" maxlength="1" style="text-transform:uppercase" placeholder="S" />
-            </div>
+    <Transition name="modal-fade">
+      <div v-if="modal.isOpen" class="modal-backdrop" @click.self="modal.isOpen = false">
+        <div class="modal-dialog">
+          <div class="modal-header">
+              <h3>{{ modal.title }}</h3>
+              <button @click="modal.isOpen = false" class="btn-close">&times;</button>
+          </div>
+          <div class="modal-body">
+              
+              <div v-if="modal.type === 'addYear'">
+                  <div class="form-group">
+                      <label>Tahun (Angka) <span class="text-red">*</span></label>
+                      <input type="number" v-model="form.year" placeholder="Contoh: 2026" class="form-input" />
+                  </div>
+                  <div class="form-group">
+                      <label>Kode Karakter VIN <span class="text-red">*</span></label>
+                      <input v-model="form.code" maxlength="1" class="form-input uppercase text-center font-bold text-lg w-24" placeholder="A" />
+                      <small class="helper-text">Satu karakter (Angka/Huruf).</small>
+                  </div>
+              </div>
 
-            <div v-if="modal.type === 'addPrefix'">
-                <label>Tipe Produk</label>
-                <select v-model="form.product_type">
-                    <option :value="null" disabled>-- Pilih Produk (Hanya Traceable) --</option>
-                    <option v-for="t in traceableTypes" :key="t.id" :value="t.id">
-                        {{ t.brand_code }} - {{ t.name }}
-                    </option>
-                </select>
-                <p v-if="traceableTypes.length === 0" class="hint-text text-danger">
-                    Tidak ada produk yang diset "Wajib VIN Trace". Silakan atur di Master Product.
-                </p>
-
-                <label>Tahun</label>
-                <select v-model="form.year_code">
-                    <option :value="null" disabled>-- Pilih Tahun --</option>
-                    <option v-for="y in years" :key="y.id" :value="y.id">{{ y.year }} ({{ y.code }})</option>
-                </select>
-
-                <label>WMI + VDS (8 Karakter)</label>
-                <input v-model="form.wmi_vds" placeholder="Misal: MH1DD182" maxlength="8" style="text-transform:uppercase"/>
-                
-                <label>Digit Ke-9 (Static)</label>
-                <input v-model="form.static_ninth_digit" placeholder="Kosongkan jika Auto Check Digit" maxlength="1" style="text-transform:uppercase"/>
-                <p class="hint-text">Isi hanya jika VIN tidak menggunakan rumus Check Digit ISO 3779.</p>
-
-                <label>Plant Code (1 Karakter)</label>
-                <input v-model="form.plant_code" placeholder="Misal: J" maxlength="1" style="text-transform:uppercase"/>
-            </div>
-        </div>
-
-        <div class="modal-footer">
-           <button @click="modal.isOpen = false" class="btn-secondary">Batal</button>
-           <button @click="submitForm" class="btn-primary" :disabled="isSubmitting">
-               {{ isSubmitting ? 'Menyimpan...' : 'Simpan' }}
-           </button>
+              <div v-if="modal.type === 'addPrefix'">
+                  <div class="form-group">
+                      <label>Tipe Produk <span class="text-red">*</span></label>
+                      <select v-model="form.product_type" class="form-select">
+                          <option :value="null" disabled>-- Pilih Produk --</option>
+                          <option v-for="t in traceableTypes" :key="t.id" :value="t.id">{{ t.brand_code }} - {{ t.name }}</option>
+                      </select>
+                      <p v-if="traceableTypes.length === 0" class="error-text">⚠️ Tidak ada produk mode 'VIN'.</p>
+                  </div>
+                  <div class="form-group">
+                      <label>Untuk Tahun Produksi <span class="text-red">*</span></label>
+                      <select v-model="form.year_code" class="form-select">
+                          <option :value="null" disabled>-- Pilih Tahun --</option>
+                          <option v-for="y in years" :key="y.id" :value="y.id">{{ y.year }} (Kode: {{ y.code }})</option>
+                      </select>
+                  </div>
+                  <div class="row-2-col">
+                      <div class="form-group">
+                          <label>WMI + VDS (8 Char)</label>
+                          <input v-model="form.wmi_vds" placeholder="MH1..." maxlength="8" class="form-input uppercase font-mono"/>
+                      </div>
+                      <div class="form-group">
+                          <label>Plant Code (1 Char)</label>
+                          <input v-model="form.plant_code" placeholder="J" maxlength="1" class="form-input uppercase font-mono text-center"/>
+                      </div>
+                  </div>
+                  <div class="form-group bg-slate-50 p-3 rounded border border-slate-200 mt-2">
+                      <label>Digit Ke-9 (Override)</label>
+                      <div class="flex items-center gap-3">
+                        <input v-model="form.static_ninth_digit" placeholder="0" maxlength="1" class="form-input uppercase w-20 text-center"/>
+                        <span class="text-xs text-muted leading-tight">Biarkan <strong>'0'</strong> jika ingin Auto Check Digit ISO 3779.</span>
+                      </div>
+                  </div>
+              </div>
+          </div>
+          <div class="modal-footer">
+             <button @click="modal.isOpen = false" class="btn-ghost">Batal</button>
+             <button @click="submitForm" class="btn-primary" :disabled="isSubmitting">{{ isSubmitting ? 'Menyimpan...' : 'Simpan Data' }}</button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
-import axios from 'axios';
-import { useAuthStore } from '../../../stores/auth'; 
-
-const BASE_API = 'http://127.0.0.1:8000/api';
-const PRODUCT_API = `${BASE_API}/product`;
-// Pastikan URL menggunakan tanda strip (-) sesuai urls.py backend
-const VIN_API = `${BASE_API}/vin-record`; 
+import api from './api';
+import { useAuthStore } from '@/stores/auth'; 
 
 const authStore = useAuthStore();
+const canCreate = computed(() => authStore.can('vin_record', 'create'));
+const canDelete = computed(() => authStore.can('vin_record', 'delete'));
 
-// RBAC
-const canCreate = computed(() => authStore.can('vin_master', 'create'));
-const canDelete = computed(() => authStore.can('vin_master', 'delete'));
-
-// State
 const isLoading = ref(true);
 const activeTab = ref('prefixes'); 
 const types = ref<any[]>([]);
 const years = ref<any[]>([]);
 const prefixes = ref<any[]>([]);
 
-// Modal
 const modal = reactive({ isOpen: false, type: '', title: '' });
 const form = reactive<any>({});
 const isSubmitting = ref(false);
 
-// --- REVISI: COMPUTED FILTER ---
-// Memfilter tipe produk, hanya menampilkan yang is_vin_trace == true
-const traceableTypes = computed(() => {
-    if (!types.value) return [];
-    return types.value.filter((t: any) => t.is_vin_trace === true);
-});
+const traceableTypes = computed(() => types.value.filter((t: any) => t.tracking_mode === 'VIN'));
 
 const loadData = async () => {
   try {
     const [resT, resY, resP] = await Promise.all([
-        axios.get(`${PRODUCT_API}/types/`), 
-        axios.get(`${VIN_API}/years/`),
-        axios.get(`${VIN_API}/prefixes/`)
+        api.getTraceableTypes(), api.getYears(), api.getPrefixes()
     ]);
-
     types.value = Array.isArray(resT.data) ? resT.data : resT.data.results || [];
     years.value = Array.isArray(resY.data) ? resY.data : resY.data.results || [];
     prefixes.value = Array.isArray(resP.data) ? resP.data : resP.data.results || [];
-  } catch(e) { 
-    console.error("Gagal load master:", e);
-  } finally {
-    isLoading.value = false;
-  }
+  } catch(e) { console.error("Gagal load master:", e); } 
+  finally { isLoading.value = false; }
 };
 
 onMounted(loadData);
 
-// Actions
-const resetForm = () => { Object.keys(form).forEach(k => delete form[k]); };
-
 const openModal = (type: string) => {
-    resetForm();
+    Object.keys(form).forEach(k => delete form[k]);
+    if (type === 'addPrefix') form.static_ninth_digit = '0';
     modal.type = type; modal.isOpen = true; 
-    if (type === 'addYear') modal.title = "Tambah Tahun Produksi";
-    if (type === 'addPrefix') modal.title = "Buat Rule Prefix";
+    modal.title = type === 'addYear' ? "Tambah Tahun Produksi" : "Buat Rule Prefix";
 };
 
 const submitForm = async () => {
     isSubmitting.value = true;
     try {
-        if(modal.type === 'addYear') {
-            await axios.post(`${VIN_API}/years/`, { 
-                year: form.year, 
-                code: form.code 
-            });
-        }
-        else if(modal.type === 'addPrefix') {
-            await axios.post(`${VIN_API}/prefixes/`, {
-                product_type: form.product_type, // Field disesuaikan
-                year_code: form.year_code,
-                wmi_vds: form.wmi_vds,
-                plant_code: form.plant_code,
-                static_ninth_digit: form.static_ninth_digit 
-            });
-        }
-        
-        modal.isOpen = false;
-        await loadData();
-    } catch(e: any) {
-        alert("Error: " + (e.response?.data?.detail || "Gagal menyimpan"));
-    } finally {
-        isSubmitting.value = false;
-    }
+        if(modal.type === 'addYear') await api.createYear(form);
+        else if(modal.type === 'addPrefix') await api.createPrefix(form);
+        modal.isOpen = false; await loadData();
+    } catch(e: any) { alert("Error: " + (e.response?.data?.detail || "Gagal menyimpan")); } 
+    finally { isSubmitting.value = false; }
 };
 
-const deleteItem = async (endpoint: string, id: number) => {
+const deleteItem = async (type: 'years' | 'prefixes', id: number) => {
     if(!confirm("Yakin hapus data ini?")) return;
     try { 
-        await axios.delete(`${VIN_API}/${endpoint}/${id}/`); 
+        if (type === 'years') await api.deleteYear(id);
+        else await api.deletePrefix(id);
         loadData(); 
-    } catch(e) { 
-        alert("Gagal menghapus."); 
-    }
+    } catch(e) { alert("Gagal menghapus."); }
 };
 </script>
 
 <style scoped>
-/* CSS Styles Tetap Sama */
-.master-page { padding: 20px; max-width: 1200px; margin: 0 auto; }
-.header { margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
-.header h2 { margin: 0; color: #1e293b; }
-.header p { margin: 5px 0 0; color: #64748b; font-size: 0.9rem; }
+/* PAGE & TABS */
+.master-page { padding: 24px; max-width: 1200px; margin: 0 auto; color: var(--text-primary); }
+.header { margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; }
+.header h2 { margin: 0; color: var(--text-primary); font-size: 1.5rem; }
+.header p { margin: 4px 0 0; color: var(--text-secondary); font-size: 0.9rem; }
 
-.loading-state { text-align: center; padding: 50px; color: #64748b; }
+.tabs { display: flex; gap: 24px; border-bottom: 2px solid var(--border-color); margin-bottom: 24px; }
+.tabs button { padding: 12px 4px; background: none; border: none; font-size: 1rem; font-weight: 600; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.3s; }
+.tabs button:hover { color: var(--primary-color); }
+.tabs button.active { border-bottom-color: var(--primary-color); color: var(--primary-color); }
 
-.tabs { display: flex; gap: 10px; border-bottom: 2px solid #e2e8f0; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; }
-.tabs button { padding: 10px 15px; background: none; border: none; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; white-space: nowrap; }
-.tabs button.active { border-bottom-color: #2563eb; color: #2563eb; }
+/* CARDS */
+.card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: var(--shadow-sm); overflow: hidden; }
+.card-header { padding: 16px 24px; background: var(--bg-body); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+.card-header h3 { margin: 0; font-size: 1.1rem; font-weight: 600; }
 
-.card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
-.card-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-.card-header h3 { margin: 0; font-size: 1.1rem; color: #1e293b; }
-
+/* TABLE STYLING */
 .table-responsive { width: 100%; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; min-width: 600px; }
-th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.9rem; vertical-align: top; }
-th { background: #f1f5f9; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; }
+.table { width: 100%; border-collapse: separate; border-spacing: 0; }
 
-.code-cell { font-family: monospace; font-weight: bold; color: #d97706; }
+/* REVISI CSS TABEL: TIDAK ADA MIN-WIDTH GLOBAL */
+.table th { background: #f8fafc; color: var(--text-secondary); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; padding: 14px 20px; text-align: left; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.table td { padding: 14px 20px; border-bottom: 1px solid var(--border-color); vertical-align: middle; font-size: 0.95rem; color: var(--text-primary); }
+.table tr:last-child td { border-bottom: none; }
+.table tr:hover { background-color: #f8fafc; }
+
+/* HANYA TABLE PREFIX YANG PUNYA MIN-WIDTH */
+.table-complex { min-width: 800px; }
+
+/* COLUMN HELPERS */
+.col-tight { width: 1%; white-space: nowrap; }
+.col-auto { width: auto; }
+.col-action { width: 100px; text-align: right; }
 .text-center { text-align: center; }
-.text-muted { color: #cbd5e1; }
+.text-right { text-align: right; }
+.font-mono { font-family: monospace; letter-spacing: 0.5px; }
+.no-wrap { white-space: nowrap; }
+.w-32 { width: 8rem; }
+.w-24 { width: 6rem; }
+.pl-6 { padding-left: 24px !important; }
+.pr-6 { padding-right: 24px !important; }
+
+/* Truncate Product Name */
+.cell-truncate { max-width: 250px; }
+.product-info strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.mode-badge { font-size: 0.65rem; background: #e0f2fe; color: #0284c7; padding: 1px 6px; border-radius: 4px; font-weight: 600; white-space: nowrap; }
+
+/* BADGES */
+.text-primary { color: var(--primary-color); font-weight: 600; }
+.text-muted { color: var(--text-secondary); }
 .text-xs { font-size: 0.75rem; }
-.hint-text { font-size: 0.75rem; color: #64748b; margin-top: -5px; margin-bottom: 15px; }
-.text-danger { color: #ef4444; font-size: 0.8rem; margin-top: -5px; margin-bottom: 10px; }
+.text-orange { color: #c2410c; }
+.code-box { background: #fff7ed; color: #c2410c; padding: 4px 8px; border-radius: 6px; border: 1px solid #ffedd5; font-family: monospace; font-weight: bold; }
+.char-box { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; background: #eff6ff; color: #1d4ed8; border-radius: 8px; font-weight: 800; font-size: 1.1rem; border: 1px solid #dbeafe; }
+.badge-year { background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
+.badge-static { background: #fefce8; color: #854d0e; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; border: 1px solid #fde047; white-space: nowrap; }
+.badge-auto { background: #f0fdf4; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; border: 1px solid #bbf7d0; font-weight: 600; }
 
-.badge-static { background: #fef3c7; color: #d97706; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-family: monospace; border: 1px solid #fde68a; }
+/* BUTTONS */
+.btn-primary { background: var(--primary-color); color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.btn-ghost { background: transparent; color: var(--text-secondary); border: none; padding: 8px 16px; font-weight: 600; cursor: pointer; }
+.btn-ghost:hover { background: #f1f5f9; color: var(--text-primary); border-radius: 6px; }
+.btn-icon { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border-color); background: white; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; color: var(--text-secondary); transition: 0.2s; }
+.btn-icon:hover { border-color: var(--primary-color); color: var(--primary-color); }
+.btn-icon.danger:hover { background: #fee2e2; border-color: #ef4444; color: #ef4444; }
 
-.btn-sm { background: #2563eb; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
-.btn-danger-text { background: none; border: none; color: #ef4444; font-weight: 600; cursor: pointer; font-size: 0.85rem; }
-.btn-danger-text:hover { text-decoration: underline; }
+/* MODAL STYLES */
+.modal-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 100; }
+.modal-dialog { background: var(--bg-card); width: 90%; max-width: 500px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); display: flex; flex-direction: column; overflow: hidden; animation: slideUp 0.3s ease; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.modal-header { padding: 16px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { margin: 0; font-size: 1.1rem; color: var(--text-primary); }
+.btn-close { background: transparent; border: none; font-size: 1.5rem; color: var(--text-secondary); cursor: pointer; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.btn-close:hover { background: #f1f5f9; }
+.modal-body { padding: 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 12px; background: var(--bg-body); }
 
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(2px); padding: 20px; box-sizing: border-box; }
-.modal-card { background: white; width: 100%; max-width: 450px; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden; animation: popIn 0.2s ease; display: flex; flex-direction: column; max-height: 90vh; }
-@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-.modal-header { padding: 15px 20px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-.btn-close { background: none; border: none; font-size: 1.5rem; color: #94a3b8; cursor: pointer; }
-.modal-body { padding: 20px; overflow-y: auto; }
-.modal-footer { padding: 15px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
-
-label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.85rem; color: #475569; margin-top: 15px; }
-label:first-child { margin-top: 0; }
-input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; outline: none; box-sizing: border-box; }
-input:focus, select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
-.btn-primary { background: #2563eb; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
-.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
-.btn-secondary { background: #e2e8f0; color: #334155; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; }
-
-@media (max-width: 768px) {
-    .master-page { padding: 10px; }
-    .card-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-    .card-header button { width: 100%; }
-    thead { display: none; }
-    tr { display: block; margin-bottom: 15px; border-bottom: 1px solid #e2e8f0; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-    td { display: block; text-align: right; padding: 8px 0; border: none; position: relative; padding-left: 40%; }
-    td::before { content: attr(data-label); position: absolute; left: 0; top: 8px; width: 40%; text-align: left; font-weight: 700; color: #64748b; font-size: 0.85rem; }
-}
+/* FORMS */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+.form-input, .form-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.95rem; background: var(--bg-body); color: var(--text-primary); box-sizing: border-box; transition: 0.2s; }
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+.row-2-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.helper-text { display: block; margin-top: 6px; font-size: 0.8rem; color: var(--text-secondary); }
+.error-text { color: #ef4444; font-size: 0.8rem; margin-top: 6px; }
+.text-red { color: #ef4444; margin-left: 2px; }
+.w-20 { width: 80px; }
+.uppercase { text-transform: uppercase; }
+.bg-slate-50 { background: #f8fafc; }
+.flex { display: flex; }
+.gap-3 { gap: 12px; }
+.items-center { align-items: center; }
+.leading-tight { line-height: 1.25; }
+.max-w-xl { max-width: 576px; }
 </style>

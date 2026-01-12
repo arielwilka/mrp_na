@@ -25,6 +25,18 @@ class VinPrefix(models.Model):
         return f"{self.product_type.code} / {self.year_code.year}"
 
 class VinRecord(models.Model):
+    # --- UPDATE STATUS ---
+    STATUS_CHOICES = [
+        ('AVAILABLE', 'Available'),  
+        ('RESERVED', 'Reserved'),    # Sedang dipakai produksi
+        ('USED', 'Used / Assembled'),# Sudah jadi Finish Good
+        ('SCRAPPED', 'Scrapped'),    
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='AVAILABLE', db_index=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    booking_reference = models.CharField(max_length=100, null=True, blank=True)
+    # ---------------------
+
     product_type = models.ForeignKey(ProductType, on_delete=models.PROTECT)
     variant = models.ForeignKey(ProductVariant, on_delete=models.PROTECT)
     color = models.ForeignKey(ProductColor, on_delete=models.PROTECT)
@@ -37,7 +49,8 @@ class VinRecord(models.Model):
     full_vin = models.CharField(max_length=17, unique=True, db_index=True)
 
     class Meta:
-        ordering = ['-id']
+        ordering = ['serial_number']
+        unique_together = ('product_type', 'production_year', 'serial_number')
 
     def save(self, *args, **kwargs):
         # LOGIC FIX: Hapus pengecekan "if not full_vin".
@@ -77,5 +90,4 @@ class VinRecord(models.Model):
 
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return self.full_vin
+    def __str__(self): return f"{self.full_vin} [{self.status}]"

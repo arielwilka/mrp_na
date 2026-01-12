@@ -1,14 +1,12 @@
 from django.contrib import admin
 from .models import YearCode, VinPrefix, VinRecord
 from product.models import ProductType
+
 # 1. ADMIN UNTUK TAHUN
 @admin.register(YearCode)
 class YearCodeAdmin(admin.ModelAdmin):
     list_display = ('year', 'code')
     ordering = ('-year',)
-    
-    # --- [PERBAIKAN DISINI] ---
-    # Wajib ada karena Model ini dipanggil via autocomplete_fields oleh admin lain
     search_fields = ('year', 'code') 
 
 # 2. ADMIN UNTUK PREFIX
@@ -17,34 +15,29 @@ class VinPrefixAdmin(admin.ModelAdmin):
     list_display = ('product_type', 'year_code', 'wmi_vds', 'plant_code')
     list_filter = ('product_type', 'year_code')
     search_fields = ('product_type__name', 'wmi_vds')
-    
-    # Ini yang menyebabkan error tadi (karena YearCodeAdmin belum punya search_fields)
     autocomplete_fields = ['year_code'] 
+    
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "product_type":
-            # QUERY DIBATASI DISINI
-            # Hanya tampilkan produk yang is_vin_trace = True
-            kwargs["queryset"] = ProductType.objects.filter(is_vin_trace=True)
+            # UPDATE: Gunakan tracking_mode='VIN'
+            kwargs["queryset"] = ProductType.objects.filter(tracking_mode='VIN')
             
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 # 3. ADMIN UNTUK VIN RECORD
 @admin.register(VinRecord)
 class VinRecordAdmin(admin.ModelAdmin):
-    list_display = ('full_vin', 'serial_number', 'product_type', 'variant', 'production_year', 'created_at')
-    list_filter = ('product_type', 'production_year', 'created_at')
+    list_display = ('full_vin', 'serial_number', 'product_type', 'variant', 'production_year', 'created_at', 'status')
+    list_filter = ('product_type', 'production_year', 'status', 'created_at')
     search_fields = ('full_vin', 'serial_number')
     readonly_fields = ('full_vin', 'created_at', 'created_by')
     
-    # PENTING: Gunakan autocomplete untuk Varian & Color
-    # Agar admin bisa mencari varian berdasarkan nama produk (misal ketik "Vario")
-    # Karena dropdown biasa akan memuat SEMUA varian dari semua produk (bisa ribuan).
     autocomplete_fields = ['variant', 'color', 'production_year']
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "product_type":
-            # Hanya tampilkan produk yang is_vin_trace = True
-            kwargs["queryset"] = ProductType.objects.filter(is_vin_trace=True)
+            # UPDATE: Gunakan tracking_mode='VIN'
+            kwargs["queryset"] = ProductType.objects.filter(tracking_mode='VIN')
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def save_model(self, request, obj, form, change):

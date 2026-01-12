@@ -3,17 +3,24 @@
 
 /* --- VARIABEL GLOBAL --- */
 :root {
-  /* Default Light Mode (Nuansa Biru Muda/Abu) */
-  --bg-body: #f8fafc;       /* Tidak putih polos, tapi abu sangat muda */
+  /* Default Light Mode */
+  --bg-body: #f8fafc;
   --bg-card: #ffffff;
-  --bg-sidebar: #1e293b;    /* Sidebar tetap gelap agar kontras */
+  --bg-sidebar: #1e293b;
   
   --text-primary: #334155;
   --text-secondary: #64748b;
   --text-sidebar: #cbd5e1;
+  --text-sidebar-hover: #ffffff;
   
   --border-color: #e2e8f0;
-  --primary-color: #3b82f6; /* Biru yang lebih cerah */
+  
+  /* Brand Colors */
+  --primary-color: #3b82f6; 
+  --primary-hover: #2563eb;
+  --danger-color: #ef4444;
+  --success-color: #22c55e;
+  --warning-color: #f59e0b;
   
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
@@ -23,49 +30,52 @@
   --header-height: 64px;
 }
 
-/* DARK MODE (Nuansa Gelap Elegan) */
+/* DARK MODE */
 [data-theme="dark"] {
-  --bg-body: #0f172a;      /* Biru malam gelap */
-  --bg-card: #1e293b;      /* Card lebih terang sedikit */
-  --bg-sidebar: #020617;   /* Sidebar hitam pekat */
+  --bg-body: #0f172a;
+  --bg-card: #1e293b;
+  --bg-sidebar: #020617;
   
-  --text-primary: #f1f5f9; /* Putih tulang */
+  --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-sidebar: #64748b;
+  --text-sidebar-hover: #e2e8f0;
   
-  --border-color: #1e293b; /* Border nyaris hilang */
+  --border-color: #334155;
   --primary-color: #60a5fa;
+  --primary-hover: #3b82f6;
   
-  --shadow-sm: none;       /* Shadow di dark mode biasanya dikurangi */
+  --shadow-sm: none;
   --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.5);
 }
 
 /* RESET & BASE */
 body {
   margin: 0;
-  font-family: 'Inter', sans-serif; /* Font lebih modern */
+  font-family: 'Inter', sans-serif;
   background-color: var(--bg-body);
   color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease; /* Animasi transisi tema */
+  transition: background-color 0.3s ease, color 0.3s ease;
   -webkit-font-smoothing: antialiased;
 }
 
-/* UTILITIES */
+/* UTILITIES KONSISTEN */
 .card {
   background: var(--bg-card);
-  border-radius: 12px;         /* Sudut membulat */
-  box-shadow: var(--shadow-md); /* Ada bayangan biar 'pop' */
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
+  overflow: hidden;
 }
 
 .btn-icon {
   background: transparent;
   border: 1px solid transparent;
   cursor: pointer;
-  color: var(--text-primary);
-  width: 40px;
-  height: 40px;
-  border-radius: 8px; /* Kotak membulat lebih modern drpd bulat penuh */
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;

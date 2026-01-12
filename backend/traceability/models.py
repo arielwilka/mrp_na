@@ -1,7 +1,6 @@
 from django.db import models, transaction
 from django.contrib.auth.models import User
 from product.models import ProductType
-
 # ==========================================
 # 1. RULE ENGINE (The Validator)
 # ==========================================

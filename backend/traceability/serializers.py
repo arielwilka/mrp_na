@@ -45,6 +45,7 @@ class SerialRuleSerializer(serializers.ModelSerializer):
 class PartMasterSerializer(serializers.ModelSerializer):
     rule_name = serializers.CharField(source='validation_rule.name', read_only=True)
     rule_code = serializers.CharField(source='validation_rule.code', read_only=True)
+<<<<<<< HEAD
     
     # [BARU] Tampilkan nama-nama produk yang kompatibel (Read Only)
     compatible_product_names = serializers.SerializerMethodField()
@@ -52,10 +53,17 @@ class PartMasterSerializer(serializers.ModelSerializer):
     class Meta:
         model = PartMaster
         # [UPDATE] Tambahkan 'compatible_product_types' ke fields
+=======
+
+    class Meta:
+        model = PartMaster
+        # Update field baru disini
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
         fields = [
             'id', 'part_number', 'part_name', 
             'validation_rule', 'rule_name', 'rule_code',
             'is_qc_required', 'is_unique_serial', 
+<<<<<<< HEAD
             'compatible_product_types', 'compatible_product_names', # <--- Field Baru
             'supplier', 'description', 'created_at'
         ]
@@ -63,6 +71,10 @@ class PartMasterSerializer(serializers.ModelSerializer):
     def get_compatible_product_names(self, obj):
         # Mengembalikan list nama string, misal: ["Fortuner", "Innova"]
         return [p.name for p in obj.compatible_product_types.all()]
+=======
+            'supplier', 'description', 'created_at'
+        ]
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
 
 # ==========================================
 # 3. TRACEABILITY BOM

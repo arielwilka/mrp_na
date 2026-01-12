@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '@/stores/auth';
 
+<<<<<<< HEAD
 // Sesuaikan URL prefix dengan backend
 const BASE_URL = '/production';
 const TRACE_URL = '/traceability';
@@ -71,34 +72,54 @@ const getConfig = () => {
             'Authorization': `Token ${authStore.token}`,
             'Content-Type': 'application/json'
         }
+=======
+const BASE_URL = '/production';
+const TRACE_URL = '/traceability';
+const getConfig = () => {
+    const authStore = useAuthStore();
+    return {
+        headers: { 'Authorization': `Token ${authStore.token}` }
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
     };
 };
 
 export default {
+<<<<<<< HEAD
     // ==========================================
     // 2. MASTER DATA
     // ==========================================
     
     // Work Centers
+=======
+    // --- MASTER DATA (Existing) ---
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
     getWorkCenters() { return axios.get(`${BASE_URL}/work-centers/`, getConfig()); },
     createWorkCenter(data: any) { return axios.post(`${BASE_URL}/work-centers/`, data, getConfig()); },
     updateWorkCenter(id: number, data: any) { return axios.put(`${BASE_URL}/work-centers/${id}/`, data, getConfig()); },
     deleteWorkCenter(id: number) { return axios.delete(`${BASE_URL}/work-centers/${id}/`, getConfig()); },
 
+<<<<<<< HEAD
     // Stations
     getStations(params?: any) {
         // Fix: Use BASE_URL variable for consistency
         return axios.get(`${BASE_URL}/stations/`, { ...getConfig(), params });
     },
+=======
+    getStations() { return axios.get(`${BASE_URL}/stations/`, getConfig()); },
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
     createStation(data: any) { return axios.post(`${BASE_URL}/stations/`, data, getConfig()); },
     updateStation(id: number, data: any) { return axios.put(`${BASE_URL}/stations/${id}/`, data, getConfig()); },
     deleteStation(id: number) { return axios.delete(`${BASE_URL}/stations/${id}/`, getConfig()); },
 
+<<<<<<< HEAD
     // Routes & Config
+=======
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
     getRoutes() { return axios.get(`${BASE_URL}/routes/`, getConfig()); },
     getRoute(id: number) { return axios.get(`${BASE_URL}/routes/${id}/`, getConfig()); },
     createRoute(data: any) { return axios.post(`${BASE_URL}/routes/`, data, getConfig()); },
     deleteRoute(id: number) { return axios.delete(`${BASE_URL}/routes/${id}/`, getConfig()); },
+<<<<<<< HEAD
     
     // Route Steps (Detail)
     addRouteStep(data: any) { return axios.post(`${BASE_URL}/route-steps/`, data, getConfig()); },
@@ -126,10 +147,26 @@ export default {
     // ==========================================
     
     // Plans
+=======
+    // --- [BARU] ROUTE STEPS (DETAIL) ---
+    addRouteStep(data: any) { 
+        return axios.post(`${BASE_URL}/route-steps/`, data, getConfig()); 
+    },
+    deleteRouteStep(id: number) { 
+        return axios.delete(`${BASE_URL}/route-steps/${id}/`, getConfig()); 
+    },
+    // --- HELPERS ---
+    getProductTypes() { return axios.get('/product/types/', getConfig()); },
+    // Ambil daftar Part Master untuk dipilih sebagai "Wajib Scan"
+    getParts() { return axios.get(`${TRACE_URL}/parts/`, getConfig()); },
+
+    // --- [BARU] PPIC: PLANNING ---
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
     getPlans() { return axios.get(`${BASE_URL}/plans/`, getConfig()); },
     createPlan(data: any) { return axios.post(`${BASE_URL}/plans/`, data, getConfig()); },
     deletePlan(id: number) { return axios.delete(`${BASE_URL}/plans/${id}/`, getConfig()); },
 
+<<<<<<< HEAD
     // Orders (SPK)
     getOrders(params = {}) { 
         return axios.get<PaginatedResponse<ProductionOrder> | ProductionOrder[]>(`${BASE_URL}/orders/`, { ...getConfig(), params }); 
@@ -153,16 +190,35 @@ export default {
     // Scan Unit / SPK 
     shopFloorScan(scanValue: string, stationId: number) { 
         return axios.post<ShopFloorResponse>(`${BASE_URL}/shop-floor/scan-unit/`, { 
+=======
+    // --- [BARU] PPIC: ORDERS (SPK) ---
+    getOrders() { return axios.get(`${BASE_URL}/orders/`, getConfig()); },
+    createOrder(data: any) { return axios.post(`${BASE_URL}/orders/`, data, getConfig()); }, // Auto VIN Booking Backend
+    
+    
+    // Ambil varian spesifik (untuk dropdown plan)
+    getVariants(typeId: number) { return axios.get(`/product/variants/?product_type=${typeId}`, getConfig()); },
+    shopFloorScan(scanValue: string, stationId: number) { 
+        return axios.post(`${BASE_URL}/shop-floor/scan-unit/`, { 
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
             scan_value: scanValue, 
             station_id: stationId 
         }, getConfig()); 
     },
+<<<<<<< HEAD
     
     // Scan Part (Traceability)
+=======
+    getColors() { 
+        // Asumsi endpoint master product color ada di sini
+        return axios.get('/product/colors/', getConfig()); 
+    },
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
     shopFloorScanPart(payload: { unit_id: number, station_id: number, part_barcode: string }) {
         return axios.post(`${BASE_URL}/shop-floor/scan-part/`, payload, getConfig());
     },
     
+<<<<<<< HEAD
     // Process Unit (Pass/Reject)
     shopFloorProcess(payload: { unit_id: number, station_id: number, action: 'PASS' | 'REJECT' }) {
         return axios.post(`${BASE_URL}/shop-floor/process-station/`, payload, getConfig());
@@ -209,4 +265,11 @@ export default {
         // Menggunakan endpoint units/{id}/update_qty/
         return axios.post(`${BASE_URL}/units/${payload.unit_id}/update_qty/`, payload, getConfig());
     },
+=======
+    // Eksekusi (PASS/FAIL/PAUSE)
+    shopFloorProcess(payload: { unit_id: number, station_id: number, action: 'PASS' | 'REJECT' | 'PAUSE' | string, reason?: string }) {
+        return axios.post(`${BASE_URL}/shop-floor/process-station/`, payload, getConfig());
+    }
+    
+>>>>>>> 3d247cd96e94d8d31c95411d6828dca3da6a78d7
 };
